@@ -44,8 +44,12 @@ export default function PatientDashboard() {
       ]);
       setAppointments(apptsRes.data);
       setPrescriptions(rxRes.data || []);
-    } catch { toast.error('Failed to load portal data'); }
-    finally { setLoading(false); }
+    } catch {
+      const local = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+      setAppointments(local);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchData(); }, []);
