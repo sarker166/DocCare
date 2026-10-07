@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import PrescriptionModal from '../components/PrescriptionModal';
 import PrescriptionViewModal from '../components/PrescriptionViewModal';
-import DoctorLiveQueue from '../components/DoctorLiveQueue';
+import DoctorLiveQueue from '../components/live-queue';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import {
