@@ -54,6 +54,18 @@ export default function DoctorProfile() {
     }
     if (!selectedSlot) { toast.error('Please select an available time slot'); return; }
 
+    const now = new Date();
+    const todayStr = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    if (selectedDate === todayStr) {
+      const startStr = String(selectedSlot).split(/[–-]/)[0].trim();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      if (timeToMinutes(startStr) <= currentMinutes) {
+        toast.error('⚠️ Time Expired: This time slot has already passed today. Please select an upcoming slot.');
+        setSelectedSlot(null);
+        return;
+      }
+    }
+
     setBookingLoading(true);
     try {
       const res = await api.post('/appointments', { doctorId: id, date: selectedDate, timeSlot: selectedSlot, reason, notes });
