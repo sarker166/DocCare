@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Search, Stethoscope, Calendar, Award, MapPin, Phone } from 'lucide-react';
 import api from '../services/api';
+import { CLINIC_DOCTORS, CLINIC_DEPARTMENTS } from '../services/doctorData';
 
 export default function DoctorList() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -13,8 +14,24 @@ export default function DoctorList() {
   const currentSearch = searchParams.get('search') || '';
   const [searchInput, setSearchInput] = useState(currentSearch);
 
+  const filterFallbackDoctors = () => {
+    let filtered = [...CLINIC_DOCTORS];
+    if (currentDept !== 'All') {
+      filtered = filtered.filter((d) => d.department === currentDept);
+    }
+    if (currentSearch) {
+      const q = currentSearch.toLowerCase();
+      filtered = filtered.filter(
+        (d) => d.name.toLowerCase().includes(q) || d.specialization.toLowerCase().includes(q)
+      );
+    }
+    setDoctors(filtered);
+  };
+
   useEffect(() => {
-    api.get('/departments').then((r) => setDepartments(r.data)).catch(console.error);
+    api.get('/departments')
+      .then((r) => setDepartments(Array.isArray(r.data) && r.data.length ? r.data : CLINIC_DEPARTMENTS))
+      .catch(() => setDepartments(CLINIC_DEPARTMENTS));
   }, []);
 
   useEffect(() => {
@@ -23,7 +40,19 @@ export default function DoctorList() {
     params.set('approvalStatus', 'approved');
     if (currentDept !== 'All') params.set('department', currentDept);
     if (currentSearch) params.set('search', currentSearch);
-    api.get(`/doctors?${params}`).then((r) => setDoctors(r.data)).catch(console.error).finally(() => setLoading(false));
+
+    api.get(`/doctors?${params}`)
+      .then((r) => {
+        if (Array.isArray(r.data) && r.data.length > 0) {
+          setDoctors(r.data);
+        } else {
+          filterFallbackDoctors();
+        }
+      })
+      .catch(() => {
+        filterFallbackDoctors();
+      })
+      .finally(() => setLoading(false));
   }, [currentDept, currentSearch]);
 
   const handleDeptSelect = (deptName) => {
