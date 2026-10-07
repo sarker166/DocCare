@@ -18,10 +18,6 @@ export const AuthProvider = ({ children }) => {
         .eq('id', userId)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching Supabase profile:', error.message);
-      }
-
       if (prof) {
         setProfile(prof);
 
@@ -36,7 +32,7 @@ export const AuthProvider = ({ children }) => {
         }
       }
     } catch (err) {
-      console.error('Failed to retrieve Supabase profile:', err);
+      console.error(err);
     }
   };
 
@@ -49,12 +45,19 @@ export const AuthProvider = ({ children }) => {
         try {
           const parsed = JSON.parse(storedUser);
           setUser(parsed);
-          const res = await api.get('/auth/me');
-          setUser(res.data);
-          if (res.data.doctorProfile) setDoctorProfile(res.data.doctorProfile);
-          localStorage.setItem('doc_user', JSON.stringify(res.data));
+          if (parsed.doctorProfile) setDoctorProfile(parsed.doctorProfile);
+
+          try {
+            const res = await api.get('/auth/me');
+            setUser(res.data);
+            if (res.data.doctorProfile) setDoctorProfile(res.data.doctorProfile);
+            localStorage.setItem('doc_user', JSON.stringify(res.data));
+          } catch (apiErr) {
+            if (isSupabaseConfigured && parsed.id) {
+              await fetchSupabaseProfile(parsed.id);
+            }
+          }
         } catch (err) {
-          console.error('Session restoration failed:', err);
           localStorage.removeItem('doc_token');
           localStorage.removeItem('doc_user');
           setUser(null);
@@ -67,16 +70,78 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password, expectedRole) => {
-    const res = await api.post('/auth/login', { email, password, expectedRole });
-    if (res.data.requires2FA) {
-      return res.data;
+    try {
+      const res = await api.post('/auth/login', { email, password, expectedRole });
+      if (res.data?.requires2FA) {
+        return res.data;
+      }
+      const { token, ...userData } = res.data;
+      localStorage.setItem('doc_token', token);
+      localStorage.setItem('doc_user', JSON.stringify(userData));
+      setUser(userData);
+      if (userData.doctorProfile) setDoctorProfile(userData.doctorProfile);
+      return userData;
+    } catch (apiErr) {
+      const isNetworkError = !apiErr.response || apiErr.code === 'ERR_NETWORK';
+      if (isSupabaseConfigured && isNetworkError) {
+        const { data: supaAuth, error: supaErr } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (supaErr) {
+          throw new Error(supaErr.message);
+        }
+
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', supaAuth.user.id)
+          .single();
+
+        const userRole = prof?.role || supaAuth.user?.user_metadata?.role || 'patient';
+        if (expectedRole && userRole !== expectedRole) {
+          await supabase.auth.signOut();
+          const mismatchErr = new Error(`Role mismatch: Account is registered as ${userRole}, not ${expectedRole}`);
+          mismatchErr.response = {
+            data: {
+              roleMismatch: true,
+              message: `Role mismatch: This account is registered as ${userRole}. Please switch to the ${userRole} tab.`,
+              actualRole: userRole,
+            },
+          };
+          throw mismatchErr;
+        }
+
+        let docProf = null;
+        if (userRole === 'doctor') {
+          const { data: docData } = await supabase
+            .from('doctors')
+            .select('*')
+            .eq('user_id', supaAuth.user.id)
+            .single();
+          docProf = docData;
+          if (docProf) setDoctorProfile(docProf);
+        }
+
+        const supaUser = {
+          _id: supaAuth.user.id,
+          id: supaAuth.user.id,
+          name: prof?.name || supaAuth.user?.user_metadata?.name || 'User',
+          email: supaAuth.user.email,
+          phoneNumber: prof?.phone || supaAuth.user?.user_metadata?.phoneNumber || '',
+          role: userRole,
+          doctorProfile: docProf,
+        };
+
+        const token = supaAuth.session?.access_token || 'supa_token_' + Date.now();
+        localStorage.setItem('doc_token', token);
+        localStorage.setItem('doc_user', JSON.stringify(supaUser));
+        setUser(supaUser);
+        return supaUser;
+      }
+      throw apiErr;
     }
-    const { token, ...userData } = res.data;
-    localStorage.setItem('doc_token', token);
-    localStorage.setItem('doc_user', JSON.stringify(userData));
-    setUser(userData);
-    if (userData.doctorProfile) setDoctorProfile(userData.doctorProfile);
-    return userData;
   };
 
   const verify2FA = async (email, code) => {
@@ -96,17 +161,70 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (formData) => {
     const role = formData.role || 'patient';
-    const localRes = await api.post('/auth/register', formData);
 
-    if (localRes.data?.requires2FA) {
+    try {
+      const localRes = await api.post('/auth/register', formData);
+      if (localRes.data?.requires2FA) {
+        return localRes.data;
+      }
+
+      const { token, ...userData } = localRes.data;
+      localStorage.setItem('doc_token', token);
+      localStorage.setItem('doc_user', JSON.stringify(userData));
+      setUser(userData);
       return localRes.data;
-    }
+    } catch (apiErr) {
+      const isNetworkError = !apiErr.response || apiErr.code === 'ERR_NETWORK';
+      if (isSupabaseConfigured && isNetworkError) {
+        const { data: supaAuth, error: supaErr } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              name: formData.name,
+              phoneNumber: formData.phoneNumber || '',
+              role: role,
+            },
+          },
+        });
 
-    const { token, ...userData } = localRes.data;
-    localStorage.setItem('doc_token', token);
-    localStorage.setItem('doc_user', JSON.stringify(userData));
-    setUser(userData);
-    return localRes.data;
+        if (supaErr) {
+          throw new Error(supaErr.message);
+        }
+
+        const supaUser = {
+          _id: supaAuth.user?.id,
+          id: supaAuth.user?.id,
+          name: formData.name,
+          email: formData.email,
+          phoneNumber: formData.phoneNumber || '',
+          role: role,
+        };
+
+        if (role === 'doctor' && supaAuth.user?.id) {
+          await supabase.from('doctors').insert([
+            {
+              user_id: supaAuth.user.id,
+              specialization: formData.specialization || 'General Physician',
+              department: formData.department || 'General Medicine',
+              qualification: formData.qualification || 'MBBS',
+              experience: Number(formData.experience) || 1,
+              consultation_fee: Number(formData.consultationFee) || 500,
+              bio: formData.bio || '',
+              clinic_address: formData.clinicAddress || 'Main Chamber',
+              approval_status: 'approved',
+            },
+          ]);
+        }
+
+        const token = supaAuth.session?.access_token || 'supa_token_' + Date.now();
+        localStorage.setItem('doc_token', token);
+        localStorage.setItem('doc_user', JSON.stringify(supaUser));
+        setUser(supaUser);
+        return supaUser;
+      }
+      throw apiErr;
+    }
   };
 
   const logout = async () => {
@@ -130,31 +248,26 @@ export const AuthProvider = ({ children }) => {
       if (res.data.doctorProfile) setDoctorProfile(res.data.doctorProfile);
       localStorage.setItem('doc_user', JSON.stringify(res.data));
     } catch (err) {
-      console.error('Refresh user error:', err);
+      if (isSupabaseConfigured && user?.id) {
+        await fetchSupabaseProfile(user.id);
+      }
     }
   };
-
-  const effectiveRole = profile?.role || user?.user_metadata?.role || user?.role || 'patient';
-  const effectiveName = profile?.name || user?.user_metadata?.name || user?.name || user?.email || 'User';
 
   return (
     <AuthContext.Provider
       value={{
-        user: user ? { ...user, role: effectiveRole, name: effectiveName } : null,
+        user,
         profile,
-        doctorProfile: doctorProfile || user?.doctorProfile,
+        doctorProfile,
         loading,
         login,
+        register,
         verify2FA,
         resend2FA,
-        register,
         logout,
         refreshUser,
         isSupabaseConfigured,
-        isAuthenticated: !!user,
-        isPatient: effectiveRole === 'patient',
-        isDoctor: effectiveRole === 'doctor',
-        isAdmin: effectiveRole === 'admin',
       }}
     >
       {children}
@@ -162,4 +275,10 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
