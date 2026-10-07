@@ -82,8 +82,13 @@ export const AuthProvider = ({ children }) => {
       if (userData.doctorProfile) setDoctorProfile(userData.doctorProfile);
       return userData;
     } catch (apiErr) {
-      const isNetworkError = !apiErr.response || apiErr.code === 'ERR_NETWORK';
-      if (isSupabaseConfigured && isNetworkError) {
+      const canFallback = isSupabaseConfigured && (
+        !apiErr.response ||
+        apiErr.code === 'ERR_NETWORK' ||
+        apiErr.response?.status === 404 ||
+        apiErr.response?.data?.notRegistered
+      );
+      if (canFallback) {
         const { data: supaAuth, error: supaErr } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -174,8 +179,12 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
       return localRes.data;
     } catch (apiErr) {
-      const isNetworkError = !apiErr.response || apiErr.code === 'ERR_NETWORK';
-      if (isSupabaseConfigured && isNetworkError) {
+      const canFallback = isSupabaseConfigured && (
+        !apiErr.response ||
+        apiErr.code === 'ERR_NETWORK' ||
+        apiErr.response?.status >= 500
+      );
+      if (canFallback) {
         const { data: supaAuth, error: supaErr } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
