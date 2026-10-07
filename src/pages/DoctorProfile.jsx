@@ -43,13 +43,17 @@ export default function DoctorProfile() {
 
   const handleBooking = async (e) => {
     e.preventDefault();
-    if (!isAuthenticated) {
+    const storedUser = user || JSON.parse(localStorage.getItem('doc_user') || 'null');
+    const isUserLoggedIn = Boolean(storedUser || isAuthenticated);
+    const userRole = storedUser?.role || user?.role || 'patient';
+
+    if (!isUserLoggedIn) {
       toast.error('Please log in as a patient to reserve this slot');
       navigate('/login', { state: { from: { pathname: `/doctors/${id}` } } });
       return;
     }
-    if (!isPatient && user?.role !== 'admin') {
-      toast.error('Doctors cannot book patient appointments.');
+    if (userRole === 'doctor') {
+      toast.error('Doctors cannot book patient appointments. Please use a patient account.');
       return;
     }
     if (!selectedSlot) { toast.error('Please select an available time slot'); return; }

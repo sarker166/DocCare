@@ -263,6 +263,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const isAuthenticated = Boolean(user);
+  const currentRole = user?.role || profile?.role || 'patient';
+  const isPatient = isAuthenticated && currentRole === 'patient';
+  const isDoctor = isAuthenticated && currentRole === 'doctor';
+  const isAdmin = isAuthenticated && currentRole === 'admin';
+
   return (
     <AuthContext.Provider
       value={{
@@ -277,6 +283,10 @@ export const AuthProvider = ({ children }) => {
         logout,
         refreshUser,
         isSupabaseConfigured,
+        isAuthenticated,
+        isPatient,
+        isDoctor,
+        isAdmin,
       }}
     >
       {children}
