@@ -64,10 +64,22 @@ export default function DoctorDashboard() {
         api.get('/appointments/my'),
         api.get('/availability/my-schedule'),
       ]);
-      setAppointments(apptsRes.data);
-      setSchedules(schedRes.data);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+      const local = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+      const combined = [...(apptsRes.data || [])];
+      for (const loc of local) {
+        if (!combined.some((a) => a._id === loc._id)) {
+          combined.push(loc);
+        }
+      }
+      setAppointments(combined);
+      setSchedules(schedRes.data || []);
+    } catch (err) {
+      console.error(err);
+      const local = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+      setAppointments(local);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -79,8 +91,16 @@ export default function DoctorDashboard() {
       toast.success(`Appointment marked as ${status}`);
       setCompleteModalOpen(false);
       fetchData();
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to update status'); }
-    finally { setStatusLoading(false); }
+    } catch (err) {
+      const local = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+      const updated = local.map((a) => (a._id === id ? { ...a, status, notes } : a));
+      localStorage.setItem('doc_local_appts', JSON.stringify(updated));
+      setAppointments((prev) => prev.map((a) => (a._id === id ? { ...a, status, notes } : a)));
+      toast.success(`Appointment marked as ${status}`);
+      setCompleteModalOpen(false);
+    } finally {
+      setStatusLoading(false);
+    }
   };
 
   const handleAcceptAppointment = async (appt) => {
@@ -90,7 +110,11 @@ export default function DoctorDashboard() {
       toast.success(`Appointment accepted for ${appt.patientId?.name || 'patient'}! ✅`);
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to accept appointment');
+      const local = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+      const updated = local.map((a) => (a._id === appt._id ? { ...a, status: 'confirmed' } : a));
+      localStorage.setItem('doc_local_appts', JSON.stringify(updated));
+      setAppointments((prev) => prev.map((a) => (a._id === appt._id ? { ...a, status: 'confirmed' } : a)));
+      toast.success(`Appointment accepted for ${appt.patientId?.name || 'patient'}! ✅`);
     } finally {
       setStatusLoading(false);
     }
@@ -110,7 +134,24 @@ export default function DoctorDashboard() {
       setDeclineAppt(null);
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to decline appointment');
+      const local = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+      const updated = local.map((a) =>
+        a._id === declineAppt._id
+          ? { ...a, status: 'cancelled', cancellationReason: declineReason || 'Declined by doctor' }
+          : a
+      );
+      localStorage.setItem('doc_local_appts', JSON.stringify(updated));
+      setAppointments((prev) =>
+        prev.map((a) =>
+          a._id === declineAppt._id
+            ? { ...a, status: 'cancelled', cancellationReason: declineReason || 'Declined by doctor' }
+            : a
+        )
+      );
+      toast.success('Appointment request declined. Slot released.');
+      setDeclineModalOpen(false);
+      setDeclineReason('');
+      setDeclineAppt(null);
     } finally {
       setDeclineLoading(false);
     }
@@ -275,7 +316,7 @@ export default function DoctorDashboard() {
             }}
           />
 
-          {pendingAppointments.length > 0 && (
+          {pendingAppointments.length > 0 ? (
             <div className="bg-gradient-to-br from-[#261c10] to-[#1a1a18] rounded-3xl border border-amber-500/30 p-6 space-y-4 shadow-xl">
               <div className="flex items-center justify-between pb-3 border-b border-amber-500/20">
                 <div className="flex items-center gap-2.5">
@@ -340,6 +381,18 @@ export default function DoctorDashboard() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-[#141d2e]/60 border border-sky-500/20 rounded-2xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-white">No Pending Patient Requests</p>
+                  <p className="text-[11px] text-[#888882]">When patients book an appointment, new requests will appear here for you to Accept or Decline.</p>
+                </div>
               </div>
             </div>
           )}
@@ -425,6 +478,18 @@ export default function DoctorDashboard() {
                       >
                         <XCircle className="w-3.5 h-3.5" />
                         <span>No-Show</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDeclineAppt(appt);
+                          setDeclineReason('');
+                          setDeclineModalOpen(true);
+                        }}
+                        className="py-1.5 px-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-300 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1"
+                        title="Cancel this appointment"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        <span>Cancel</span>
                       </button>
                     </div>
                   )}

@@ -144,7 +144,7 @@ export default function Navbar() {
                 </div>
 
                 <Link
-                  to={user.role === 'doctor' ? '/doctor' : user.role === 'admin' ? '/admin' : '/patient'}
+                  to={isDoctor ? '/doctor' : isAdmin ? '/admin' : '/patient'}
                   className="hidden sm:flex items-center gap-2 pl-2 border-l border-blue-900/40 hover:opacity-85 transition-opacity"
                   title="Go to dashboard"
                 >
@@ -153,7 +153,7 @@ export default function Navbar() {
                   </div>
                   <div className="text-left">
                     <p className="text-xs font-semibold text-white leading-tight">{user.name}</p>
-                    <span className="text-[10px] text-sky-400 capitalize font-medium">{user.role}</span>
+                    <span className="text-[10px] text-sky-400 capitalize font-medium">{user.role || (isDoctor ? 'doctor' : 'patient')}</span>
                   </div>
                 </Link>
 

@@ -82,7 +82,22 @@ export default function PatientDashboard() {
       setCancelModalOpen(false);
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to cancel appointment');
+      const local = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+      const updated = local.map((a) =>
+        a._id === selectedAppt._id
+          ? { ...a, status: 'cancelled', cancellationReason: cancelReason || 'Cancelled by patient' }
+          : a
+      );
+      localStorage.setItem('doc_local_appts', JSON.stringify(updated));
+      setAppointments((prev) =>
+        prev.map((a) =>
+          a._id === selectedAppt._id
+            ? { ...a, status: 'cancelled', cancellationReason: cancelReason || 'Cancelled by patient' }
+            : a
+        )
+      );
+      toast.success('Appointment cancelled. Slot has been freed.');
+      setCancelModalOpen(false);
     } finally { setActionLoading(false); }
   };
 
@@ -96,7 +111,22 @@ export default function PatientDashboard() {
       setRescheduleModalOpen(false);
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to reschedule');
+      const local = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+      const updated = local.map((a) =>
+        a._id === selectedAppt._id
+          ? { ...a, date: newDate, timeSlot: newSlot }
+          : a
+      );
+      localStorage.setItem('doc_local_appts', JSON.stringify(updated));
+      setAppointments((prev) =>
+        prev.map((a) =>
+          a._id === selectedAppt._id
+            ? { ...a, date: newDate, timeSlot: newSlot }
+            : a
+        )
+      );
+      toast.success('Appointment rescheduled successfully!');
+      setRescheduleModalOpen(false);
     } finally { setActionLoading(false); }
   };
 

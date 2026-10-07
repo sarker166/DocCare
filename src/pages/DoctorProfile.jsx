@@ -5,14 +5,14 @@ import SlotPicker from '../components/SlotPicker';
 import Modal from '../components/Modal';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { Stethoscope, Award, MapPin, Calendar, ShieldCheck, CheckCircle2, FileText, ArrowLeft, Phone } from 'lucide-react';
+import { Stethoscope, Award, MapPin, Calendar, ShieldCheck, CheckCircle2, FileText, ArrowLeft, ArrowRight, Phone } from 'lucide-react';
 import { formatTime12h } from '../utils/timeFormat';
 import { CLINIC_DOCTORS } from '../services/doctorData';
 
 export default function DoctorProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, isAuthenticated, isPatient } = useAuth();
+  const { user, isAuthenticated, isPatient, isDoctor } = useAuth();
 
   const [doctor, setDoctor] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -90,7 +90,7 @@ export default function DoctorProfile() {
             date: selectedDate,
             timeSlot: selectedSlot,
             tokenNumber: Math.floor(Math.random() * 20) + 1,
-            status: 'confirmed',
+            status: 'pending',
             reason: reason || 'General Consultation',
             createdAt: new Date().toISOString()
           };
@@ -99,7 +99,7 @@ export default function DoctorProfile() {
           setBookedDetails(fallbackBooking);
           setSuccessModalOpen(true);
           setSelectedSlot(null);
-          toast.success('Appointment booked successfully!');
+          toast.success('Appointment request submitted! Pending doctor approval ⏳');
         } else {
           toast.error(err.response?.data?.message || 'Booking failed');
         }
@@ -133,6 +133,29 @@ export default function DoctorProfile() {
         className="inline-flex items-center gap-1.5 text-xs font-bold text-[#888882] hover:text-teal-400 transition-colors">
         <ArrowLeft className="w-4 h-4" /> Back to Doctors
       </button>
+
+      {(isDoctor || user?.role === 'doctor') && (
+        <div className="bg-sky-500/10 border border-sky-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center text-lg">
+              🩺
+            </div>
+            <div>
+              <h4 className="font-bold text-white text-sm">Doctor Controls</h4>
+              <p className="text-xs text-sky-200/80">
+                You are logged in as a doctor. To approve, accept, or cancel patient appointment requests, go to your Doctor Dashboard.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/doctor')}
+            className="px-4 py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 flex-shrink-0"
+          >
+            <span>Doctor Dashboard &amp; Approvals</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-5 space-y-6">
@@ -262,14 +285,18 @@ export default function DoctorProfile() {
         </div>
       </div>
 
-      <Modal isOpen={successModalOpen} onClose={() => { setSuccessModalOpen(false); navigate('/patient'); }} title="Appointment Confirmed!">
+      <Modal isOpen={successModalOpen} onClose={() => { setSuccessModalOpen(false); navigate('/patient'); }} title={bookedDetails?.status === 'pending' ? "Appointment Request Submitted! ⏳" : "Appointment Confirmed! ✅"}>
         <div className="text-center space-y-4 py-2">
           <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-400 mx-auto flex items-center justify-center">
             <CheckCircle2 className="w-8 h-8" />
           </div>
           <div>
-            <h4 className="font-bold text-white text-lg">You are all set!</h4>
-            <p className="text-xs text-[#888882] mt-1">Your appointment slot has been locked and confirmed.</p>
+            <h4 className="font-bold text-white text-lg">
+              {bookedDetails?.status === 'pending' ? 'Request Sent to Doctor!' : 'You are all set!'}
+            </h4>
+            <p className="text-xs text-[#888882] mt-1">
+              {bookedDetails?.status === 'pending' ? 'Your booking request is pending doctor review & approval.' : 'Your appointment slot has been locked and confirmed.'}
+            </p>
           </div>
           <div className="bg-[#111110] p-4 rounded-xl text-left text-xs space-y-2 border border-white/[0.06]">
             {[
