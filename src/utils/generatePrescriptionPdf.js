@@ -1,10 +1,11 @@
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import jsPDFModule from 'jspdf';
+import autoTableModule from 'jspdf-autotable';
 
 export const generatePrescriptionPdf = (prescription) => {
   if (!prescription) return;
 
-  const doc = new jsPDF({
+  const JsPDFClass = jsPDFModule.jsPDF || jsPDFModule.default || jsPDFModule;
+  const doc = new JsPDFClass({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
@@ -230,7 +231,8 @@ export const generatePrescriptionPdf = (prescription) => {
     m.instructions || '-',
   ]);
 
-  autoTable(doc, {
+  const applyAutoTable = typeof autoTableModule === 'function' ? autoTableModule : autoTableModule.default || autoTableModule;
+  applyAutoTable(doc, {
     startY: currentY,
     head: [['#', 'Medicine Name', 'Dosage & Timing', 'Duration', 'Instructions']],
     body: tableData.length > 0 ? tableData : [['-', 'No medications listed', '-', '-', '-']],
