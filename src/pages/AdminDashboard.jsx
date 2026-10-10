@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import {
   Calendar, CheckCircle2, XCircle, AlertTriangle,
   Building2, FileBarChart, ShieldCheck, Plus, Trash2,
+  Search, Filter, Clock, User, Stethoscope,
 } from 'lucide-react';
 import { formatTime12h } from '../utils/timeFormat';
 
@@ -65,6 +66,31 @@ export default function AdminDashboard() {
     catch { toast.error('Failed to delete department'); }
   };
 
+  const handleDeleteAppointment = async (apptId) => {
+    if (!window.confirm('Permanently delete this appointment record?')) return;
+    try {
+      await api.delete(`/admin/appointments/${apptId}`);
+      toast.success('Appointment deleted');
+      fetchAdminData();
+    } catch (err) {
+      // Fallback: remove from local storage if backend unreachable
+      const isNetworkErr = !err.response || err.code === 'ERR_NETWORK';
+      if (isNetworkErr) {
+        const local = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+        const updated = local.filter(a => a._id !== apptId);
+        localStorage.setItem('doc_local_appts', JSON.stringify(updated));
+        // Also remove from current stats view
+        setStats(prev => prev ? {
+          ...prev,
+          recentAppointments: (prev.recentAppointments || []).filter(a => a._id !== apptId)
+        } : prev);
+        toast.success('Appointment removed (Local Mode)');
+      } else {
+        toast.error('Failed to delete appointment');
+      }
+    }
+  };
+
   const metrics = stats?.metrics;
 
   const tabCls = (t) =>
@@ -84,18 +110,24 @@ export default function AdminDashboard() {
 
   const [docSearch, setDocSearch] = useState('');
   const [logSearch, setLogSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
-  const filteredDoctors = doctors.filter(d => 
-    d.name?.toLowerCase().includes(docSearch.toLowerCase()) || 
+  const filteredDoctors = doctors.filter(d =>
+    d.name?.toLowerCase().includes(docSearch.toLowerCase()) ||
     d.department?.toLowerCase().includes(docSearch.toLowerCase()) ||
     d.email?.toLowerCase().includes(docSearch.toLowerCase())
   );
 
-  const filteredLogs = stats?.recentAppointments?.filter(a => 
-    a.patientId?.name?.toLowerCase().includes(logSearch.toLowerCase()) ||
-    a.doctorId?.name?.toLowerCase().includes(logSearch.toLowerCase()) ||
-    a.reason?.toLowerCase().includes(logSearch.toLowerCase())
-  ) || [];
+  const allLogs = stats?.recentAppointments || [];
+  const filteredLogs = allLogs.filter(a => {
+    const matchSearch =
+      a.patientId?.name?.toLowerCase().includes(logSearch.toLowerCase()) ||
+      a.doctorId?.name?.toLowerCase().includes(logSearch.toLowerCase()) ||
+      a.reason?.toLowerCase().includes(logSearch.toLowerCase());
+    const matchStatus = statusFilter === 'all' || a.status === statusFilter;
+    return matchSearch && matchStatus;
+  });
+
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
@@ -148,43 +180,112 @@ export default function AdminDashboard() {
       </div>
 
       {activeTab === 'overview' && (
-        <div className="bg-[#1a1a18] rounded-3xl border border-white/[0.08] p-6 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <h3 className="font-bold text-white text-base">Latest Appointments Log</h3>
-            <input 
-              type="text" 
-              placeholder="Search patients or doctors..." 
-              value={logSearch} 
-              onChange={(e) => setLogSearch(e.target.value)} 
-              className={`${inputCls} max-w-xs`} 
-            />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-[#111110]">
-                <tr>
-                  {['Patient','Doctor','Department','Date & Slot','Reason','Status'].map((h) => (
-                    <th key={h} className={thCls}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {filteredLogs.map((a) => (
-                  <tr key={a._id} className="hover:bg-white/[0.02]">
-                    <td className={tdCls + ' font-bold text-white'}>{a.patientId?.name || 'User'}</td>
-                    <td className={tdCls}>{a.doctorId?.name || 'Doctor'}</td>
-                    <td className={tdCls + ' text-teal-400'}>{a.doctorId?.department}</td>
-                    <td className={tdCls + ' whitespace-nowrap'}>{a.date} <span className="text-[#555552]">({formatTime12h(a.timeSlot)})</span></td>
-                    <td className={tdCls + ' truncate max-w-xs'}>{a.reason}</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${statusBadgeCls(a.status)}`}>{a.status}</span>
-                    </td>
-                  </tr>
+        <div className="space-y-5">
+          {/* Toolbar */}
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+            <div>
+              <h3 className="font-bold text-white text-base">Appointments Log</h3>
+              <p className="text-xs text-[#555552] mt-0.5">{allLogs.length} total records</p>
+            </div>
+            <div className="flex flex-wrap gap-2 items-center">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#555552]" />
+                <input
+                  type="text"
+                  placeholder="Search patient or doctor..."
+                  value={logSearch}
+                  onChange={(e) => setLogSearch(e.target.value)}
+                  className="pl-8 pr-3 py-2 bg-[#111110] border border-white/[0.08] rounded-xl text-xs text-white placeholder-[#555552] focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 w-48"
+                />
+              </div>
+              {/* Status filter pills */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {['all','pending','confirmed','completed','cancelled','no-show'].map(s => (
+                  <button
+                    key={s}
+                    onClick={() => setStatusFilter(s)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                      statusFilter === s
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-white/[0.05] text-[#888882] hover:text-white hover:bg-white/[0.08]'
+                    }`}
+                  >
+                    {s === 'all' ? 'All' : s}
+                  </button>
                 ))}
-              </tbody>
-            </table>
-            {filteredLogs.length === 0 && <p className="text-xs text-[#555552] p-4 text-center">No matching records</p>}
+              </div>
+            </div>
           </div>
+
+          {/* Cards Grid */}
+          {filteredLogs.length === 0 ? (
+            <div className="bg-[#1a1a18] rounded-3xl border border-dashed border-white/[0.08] p-12 text-center">
+              <Calendar className="w-10 h-10 text-[#3a3a38] mx-auto mb-2" />
+              <p className="text-sm font-bold text-white">No Records Found</p>
+              <p className="text-xs text-[#555552] mt-1">Try adjusting your search or filter.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredLogs.map((a) => (
+                <div key={a._id} className="bg-[#1a1a18] rounded-2xl border border-white/[0.08] p-4 hover:border-purple-500/20 transition-all flex flex-col gap-3">
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
+                        <User className="w-4 h-4 text-purple-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-white leading-tight">{a.patientId?.name || 'Patient'}</p>
+                        <p className="text-[10px] text-[#555552]">{a.patientId?.email || a.patientId?.phoneNumber || ''}</p>
+                      </div>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase shrink-0 ${statusBadgeCls(a.status)}`}>
+                      {a.status}
+                    </span>
+                  </div>
+
+                  {/* Doctor */}
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#111110] border border-white/[0.06]">
+                    <Stethoscope className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                    <div>
+                      <p className="text-xs font-semibold text-white">{a.doctorId?.name || 'Doctor'}</p>
+                      <p className="text-[10px] text-teal-400">{a.doctorId?.department}</p>
+                    </div>
+                  </div>
+
+                  {/* Date & Reason */}
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="flex items-center gap-1.5 text-[#888882]">
+                      <Calendar className="w-3 h-3 text-[#555552] shrink-0" />
+                      <span>{a.date}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[#888882]">
+                      <Clock className="w-3 h-3 text-[#555552] shrink-0" />
+                      <span>{formatTime12h(a.timeSlot)}</span>
+                    </div>
+                  </div>
+
+                  {a.reason && (
+                    <p className="text-[11px] text-[#888882] truncate">
+                      <span className="text-[#555552]">Reason:</span> {a.reason}
+                    </p>
+                  )}
+
+                  {/* Footer: Delete */}
+                  <div className="pt-2 border-t border-white/[0.06] flex justify-end">
+                    <button
+                      onClick={() => handleDeleteAppointment(a._id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete Record
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
