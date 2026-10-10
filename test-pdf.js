@@ -1,0 +1,1 @@
+import { jsPDF } from 'jspdf'; import autoTable from 'jspdf-autotable'; const doc = new jsPDF(); autoTable(doc, {head:[['a']], body: [['b']]}); console.log(doc.lastAutoTable ? 'has lastAutoTable' : 'no lastAutoTable');

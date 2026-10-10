@@ -418,7 +418,9 @@ export default function PatientDashboard() {
                           toast.loading('Generating PDF prescription...', { id: 'pdf-toast' });
                           generatePrescriptionPdf(rx);
                           toast.success('Prescription PDF downloaded! 📄', { id: 'pdf-toast' });
-                        } catch {
+                        } catch (err) {
+                          toast.error('Failed to generate PDF', { id: 'pdf-toast' });
+                          console.error(err);
                           handleDirectRxView(rx);
                         }
                       }}
