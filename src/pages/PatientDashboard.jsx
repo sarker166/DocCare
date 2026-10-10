@@ -219,19 +219,19 @@ export default function PatientDashboard() {
         </Link>
       </div>
 
-      <div className="border-b border-white/[0.08] flex items-center gap-6 overflow-x-auto">
-        <button onClick={() => setActiveTab('upcoming')} className={tabCls('upcoming')}>
+      <div className="border-b border-white/[0.08] flex items-center gap-4 sm:gap-6 overflow-x-auto scrollbar-none pb-px">
+        <button onClick={() => setActiveTab('upcoming')} className={tabCls('upcoming') + ' whitespace-nowrap shrink-0'}>
           <span>Upcoming Visits</span>{countBadge(upcomingAppointments.length)}
         </button>
-        <button onClick={() => setActiveTab('history')} className={tabCls('history')}>
+        <button onClick={() => setActiveTab('history')} className={tabCls('history') + ' whitespace-nowrap shrink-0'}>
           <span>Visit History</span>{countBadge(pastAppointments.length)}
         </button>
-        <button onClick={() => setActiveTab('prescriptions')} className={tabCls('prescriptions')}>
-          <FileText className="w-3.5 h-3.5" />
+        <button onClick={() => setActiveTab('prescriptions')} className={tabCls('prescriptions') + ' whitespace-nowrap shrink-0'}>
+          <FileText className="w-3.5 h-3.5 shrink-0" />
           <span>Prescriptions (Rx)</span>{countBadge(prescriptions.length)}
         </button>
-        <button onClick={() => setActiveTab('notifications')} className={tabCls('notifications')}>
-          <span>Reminders &amp; Alerts</span>{countBadge(notifications.length)}
+        <button onClick={() => setActiveTab('notifications')} className={tabCls('notifications') + ' whitespace-nowrap shrink-0'}>
+          <span>Reminders & Alerts</span>{countBadge(notifications.length)}
         </button>
       </div>
 
@@ -242,7 +242,7 @@ export default function PatientDashboard() {
         </div>
       ) : activeTab === 'upcoming' ? (
         upcomingAppointments.length === 0 ? (
-          <div className="bg-[#1a1a18] rounded-3xl border border-dashed border-white/[0.08] p-12 text-center max-w-md mx-auto space-y-3">
+          <div className="bg-[#1a1a18] rounded-3xl border border-dashed border-white/[0.08] p-8 sm:p-12 text-center max-w-md mx-auto space-y-3 mx-4 sm:mx-auto">
             <Calendar className="w-12 h-12 text-[#3a3a38] mx-auto" />
             <h3 className="text-base font-bold text-white">No Upcoming Appointments</h3>
             <p className="text-xs text-[#888882]">You do not have any scheduled doctor visits right now.</p>
