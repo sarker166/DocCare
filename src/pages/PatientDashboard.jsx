@@ -59,7 +59,17 @@ export default function PatientDashboard() {
       const res = await api.get(`/prescriptions/appointment/${appt._id}`);
       setSelectedRx(res.data);
       setRxViewModalOpen(true);
-    } catch {
+    } catch (err) {
+      const isNetworkErr = !err.response || err.code === 'ERR_NETWORK';
+      if (isNetworkErr || err.response?.status === 404) {
+        const localRxs = JSON.parse(localStorage.getItem('doc_local_rx') || '[]');
+        const localRx = localRxs.find(rx => rx.appointmentId === appt._id);
+        if (localRx) {
+          setSelectedRx(localRx);
+          setRxViewModalOpen(true);
+          return;
+        }
+      }
       toast.error('No prescription has been issued yet for this appointment');
     }
   };

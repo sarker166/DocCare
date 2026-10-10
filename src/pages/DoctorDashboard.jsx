@@ -163,6 +163,16 @@ export default function DoctorDashboard() {
       setSelectedRx(res.data);
       setRxViewModalOpen(true);
     } catch (err) {
+      const isNetworkErr = !err.response || err.code === 'ERR_NETWORK';
+      if (isNetworkErr || err.response?.status === 404) {
+        const localRxs = JSON.parse(localStorage.getItem('doc_local_rx') || '[]');
+        const localRx = localRxs.find(rx => rx.appointmentId === appt._id);
+        if (localRx) {
+          setSelectedRx(localRx);
+          setRxViewModalOpen(true);
+          return;
+        }
+      }
       toast.error('No prescription found for this appointment');
     }
   };

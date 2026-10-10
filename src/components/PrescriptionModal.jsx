@@ -78,7 +78,39 @@ export default function PrescriptionModal({ isOpen, onClose, appointment, onPres
       }
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to issue prescription');
+      const isNetworkErr = !err.response || err.code === 'ERR_NETWORK';
+      if (isNetworkErr) {
+        // Local storage fallback
+        const rxNumber = `RX-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+        const localRx = {
+          _id: `rx_${Date.now()}`,
+          prescriptionNumber: rxNumber,
+          ...payload,
+          doctorId: appointment.doctorId,
+          patientId: appointment.patientId,
+          createdAt: new Date().toISOString(),
+        };
+        const storedRx = JSON.parse(localStorage.getItem('doc_local_rx') || '[]');
+        storedRx.push(localRx);
+        localStorage.setItem('doc_local_rx', JSON.stringify(storedRx));
+
+        // Update appointment status to completed locally
+        const localAppts = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+        const updatedAppts = localAppts.map(a => 
+          a._id === appointment._id 
+            ? { ...a, status: 'completed', hasPrescription: true, prescriptionId: localRx._id } 
+            : a
+        );
+        localStorage.setItem('doc_local_appts', JSON.stringify(updatedAppts));
+
+        toast.success('Digital Prescription issued (Local Mode)!');
+        if (onPrescriptionSaved) {
+          onPrescriptionSaved(localRx);
+        }
+        onClose();
+      } else {
+        toast.error(err.response?.data?.message || 'Failed to issue prescription');
+      }
     } finally {
       setLoading(false);
     }
