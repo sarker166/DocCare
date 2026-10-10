@@ -46,9 +46,9 @@ export default function App() {
             <Route
               path="/*"
               element={
-                <div className="min-h-screen w-full overflow-x-hidden flex flex-col bg-[#070f1e] text-slate-100 selection:bg-sky-500 selection:text-white">
+                <div className="min-h-screen flex flex-col bg-[#070f1e] text-slate-100 selection:bg-sky-500 selection:text-white">
                   <Navbar />
-                  <main className="flex-1 flex flex-col w-full overflow-x-hidden">
+                  <main className="flex-1 flex flex-col">
                     <Routes>
                       <Route path="/doctors" element={<DoctorList />} />
                       <Route path="/doctors/:id" element={<DoctorProfile />} />
