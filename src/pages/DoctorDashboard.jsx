@@ -293,21 +293,21 @@ export default function DoctorDashboard() {
         </div>
       </div>
 
-      <div className="border-b border-white/[0.08] flex items-center gap-6">
-        <button onClick={() => setActiveTab('appointments')} className={tabCls('appointments')}>
-          <Calendar className="w-4 h-4" /><span>Patient Appointments</span>
+      <div className="border-b border-white/[0.08] flex items-center gap-4 sm:gap-6 overflow-x-auto scrollbar-none pb-px">
+        <button onClick={() => setActiveTab('appointments')} className={tabCls('appointments') + ' whitespace-nowrap shrink-0'}>
+          <Calendar className="w-4 h-4 shrink-0" /><span>Appointments</span>
           <span className="text-xs bg-white/[0.06] text-[#888882] px-2 py-0.5 rounded-full">{appointments.length}</span>
           {pendingAppointments.length > 0 && (
-            <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold animate-pulse">
+            <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold animate-pulse hidden sm:inline">
               {pendingAppointments.length} Pending
             </span>
           )}
         </button>
-        <button onClick={() => setActiveTab('availability')} className={tabCls('availability')}>
-          <Clock className="w-4 h-4" /><span>Availability &amp; Slots</span>
+        <button onClick={() => setActiveTab('availability')} className={tabCls('availability') + ' whitespace-nowrap shrink-0'}>
+          <Clock className="w-4 h-4 shrink-0" /><span>Availability</span>
         </button>
-        <button onClick={() => setActiveTab('profile')} className={tabCls('profile')}>
-          <User className="w-4 h-4" /><span>Profile Settings</span>
+        <button onClick={() => setActiveTab('profile')} className={tabCls('profile') + ' whitespace-nowrap shrink-0'}>
+          <User className="w-4 h-4 shrink-0" /><span>Profile</span>
         </button>
       </div>
 
@@ -469,38 +469,37 @@ export default function DoctorDashboard() {
                     <div className="pt-2 border-t border-white/[0.06] flex flex-wrap items-center gap-2">
                       <button
                         onClick={() => { setSelectedAppt(appt); setPrescriptionModalOpen(true); }}
-                        className="flex-1 py-1.5 px-3 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-teal-600/20"
+                        className="flex-1 min-w-[120px] py-1.5 px-3 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-teal-600/20"
                       >
-                        <FileText className="w-3.5 h-3.5" />
+                        <FileText className="w-3.5 h-3.5 shrink-0" />
                         <span>Prescribe (Rx)</span>
                       </button>
-                      <button
-                        onClick={() => { setSelectedAppt(appt); setClinicalNotes(''); setCompleteModalOpen(true); }}
-                        className="py-1.5 px-2.5 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1"
-                        title="Mark completed with simple notes"
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Quick Done</span>
-                      </button>
-                      <button
-                        onClick={() => handleUpdateStatus(appt._id, 'no-show')}
-                        className="py-1.5 px-2.5 bg-[#111110] border border-white/[0.08] hover:border-amber-500/30 text-[#888882] hover:text-amber-400 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1"
-                      >
-                        <XCircle className="w-3.5 h-3.5" />
-                        <span>No-Show</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setDeclineAppt(appt);
-                          setDeclineReason('');
-                          setDeclineModalOpen(true);
-                        }}
-                        className="py-1.5 px-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-300 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1"
-                        title="Cancel this appointment"
-                      >
-                        <XCircle className="w-3.5 h-3.5" />
-                        <span>Cancel</span>
-                      </button>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => { setSelectedAppt(appt); setClinicalNotes(''); setCompleteModalOpen(true); }}
+                          className="py-1.5 px-2.5 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1"
+                          title="Mark completed with simple notes"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>Quick Done</span>
+                        </button>
+                        <button
+                          onClick={() => handleUpdateStatus(appt._id, 'no-show')}
+                          className="py-1.5 px-2.5 bg-[#111110] border border-white/[0.08] hover:border-amber-500/30 text-[#888882] hover:text-amber-400 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1"
+                        >
+                          <XCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span className="hidden sm:inline">No-Show</span>
+                          <span className="sm:hidden">NS</span>
+                        </button>
+                        <button
+                          onClick={() => { setDeclineAppt(appt); setDeclineReason(''); setDeclineModalOpen(true); }}
+                          className="py-1.5 px-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-300 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1"
+                          title="Cancel this appointment"
+                        >
+                          <XCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>Cancel</span>
+                        </button>
+                      </div>
                     </div>
                   )}
 

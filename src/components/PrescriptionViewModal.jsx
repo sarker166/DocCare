@@ -436,7 +436,7 @@ export default function PrescriptionViewModal({ isOpen, onClose, prescription })
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/[0.08]">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3 pt-2 border-t border-white/[0.08]">
           <button
             type="button"
             onClick={onClose}
@@ -445,11 +445,11 @@ export default function PrescriptionViewModal({ isOpen, onClose, prescription })
             Close
           </button>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
             <button
               type="button"
               onClick={handlePrint}
-              className="py-2.5 px-4 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] text-white font-semibold text-xs transition-colors flex items-center gap-1.5"
+              className="py-2.5 px-4 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5"
               title="Open browser print preview dialog"
             >
               <Printer className="w-4 h-4 text-[#888882]" />
@@ -460,7 +460,7 @@ export default function PrescriptionViewModal({ isOpen, onClose, prescription })
               type="button"
               onClick={handleDownloadPdf}
               disabled={downloading}
-              className="py-2.5 px-5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-lg shadow-teal-700/30 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50"
+              className="py-2.5 px-5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-lg shadow-teal-700/30 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
               title="Instantly download the official prescription as a vector PDF document"
             >
               <Download className="w-4 h-4" />

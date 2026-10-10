@@ -163,19 +163,24 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      <div className="border-b border-white/[0.08] flex items-center gap-6 overflow-x-auto">
-        <button onClick={() => setActiveTab('overview')} className={tabCls('overview')}>
-          <FileBarChart className="w-4 h-4" /><span>Recent Activity</span>
+      <div className="border-b border-white/[0.08] flex items-center gap-4 sm:gap-6 overflow-x-auto scrollbar-none pb-px">
+        <button onClick={() => setActiveTab('overview')} className={tabCls('overview') + ' whitespace-nowrap shrink-0'}>
+          <FileBarChart className="w-4 h-4 shrink-0" /><span>Activity</span>
         </button>
-        <button onClick={() => setActiveTab('doctors')} className={tabCls('doctors')}>
-          <ShieldCheck className="w-4 h-4" />
-          <span>Doctor Approvals ({doctors.filter((d) => d.approvalStatus === 'pending').length})</span>
+        <button onClick={() => setActiveTab('doctors')} className={tabCls('doctors') + ' whitespace-nowrap shrink-0'}>
+          <ShieldCheck className="w-4 h-4 shrink-0" />
+          <span>Doctors</span>
+          {doctors.filter((d) => d.approvalStatus === 'pending').length > 0 && (
+            <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-bold">
+              {doctors.filter((d) => d.approvalStatus === 'pending').length}
+            </span>
+          )}
         </button>
-        <button onClick={() => setActiveTab('departments')} className={tabCls('departments')}>
-          <Building2 className="w-4 h-4" /><span>Departments</span>
+        <button onClick={() => setActiveTab('departments')} className={tabCls('departments') + ' whitespace-nowrap shrink-0'}>
+          <Building2 className="w-4 h-4 shrink-0" /><span>Departments</span>
         </button>
-        <button onClick={() => setActiveTab('reports')} className={tabCls('reports')}>
-          <AlertTriangle className="w-4 h-4" /><span>Cancellation &amp; No-Show Audit</span>
+        <button onClick={() => setActiveTab('reports')} className={tabCls('reports') + ' whitespace-nowrap shrink-0'}>
+          <AlertTriangle className="w-4 h-4 shrink-0" /><span className="hidden sm:inline">Cancellation & No-Show</span><span className="sm:hidden">Reports</span>
         </button>
       </div>
 
