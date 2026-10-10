@@ -252,7 +252,7 @@ export default function Login() {
       ) : (
         <div className="w-full max-w-5xl bg-white border border-slate-200/90 rounded-[2.5rem] shadow-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 relative z-10">
 
-          <div className={`lg:col-span-5 ${currentConfig.leftGradient} p-8 sm:p-10 flex flex-col justify-between relative overflow-hidden text-white transition-all duration-700`}>
+          <div className={`hidden lg:flex lg:col-span-5 ${currentConfig.leftGradient} p-8 sm:p-10 flex-col justify-between relative overflow-hidden text-white transition-all duration-700`}>
             <div className="absolute -top-16 -left-16 w-60 h-60 rounded-full bg-white/10 blur-2xl pointer-events-none" />
             <div className="absolute -bottom-16 -right-16 w-60 h-60 rounded-full bg-black/25 blur-2xl pointer-events-none" />
 
@@ -308,7 +308,7 @@ export default function Login() {
             </div>
           </div>
 
-          <div className="lg:col-span-7 p-8 sm:p-10 flex flex-col justify-between bg-white relative">
+          <div className="col-span-1 lg:col-span-7 p-6 sm:p-10 flex flex-col justify-between bg-white relative">
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-6">
