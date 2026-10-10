@@ -293,7 +293,7 @@ export default function DoctorDashboard() {
         </div>
       </div>
 
-      <div className="border-b border-white/[0.08] flex items-center gap-4 sm:gap-6 overflow-x-auto scrollbar-none pb-px">
+      <div className="w-full border-b border-white/[0.08] flex items-center gap-4 sm:gap-6 overflow-x-auto scrollbar-none pb-px">
         <button onClick={() => setActiveTab('appointments')} className={tabCls('appointments') + ' whitespace-nowrap shrink-0'}>
           <Calendar className="w-4 h-4 shrink-0" /><span>Appointments</span>
           <span className="text-xs bg-white/[0.06] text-[#888882] px-2 py-0.5 rounded-full">{appointments.length}</span>

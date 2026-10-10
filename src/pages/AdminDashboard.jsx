@@ -163,7 +163,7 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      <div className="border-b border-white/[0.08] flex items-center gap-4 sm:gap-6 overflow-x-auto scrollbar-none pb-px">
+      <div className="w-full border-b border-white/[0.08] flex items-center gap-4 sm:gap-6 overflow-x-auto scrollbar-none pb-px">
         <button onClick={() => setActiveTab('overview')} className={tabCls('overview') + ' whitespace-nowrap shrink-0'}>
           <FileBarChart className="w-4 h-4 shrink-0" /><span>Activity</span>
         </button>
@@ -309,7 +309,7 @@ export default function AdminDashboard() {
               className={`${inputCls} max-w-xs`} 
             />
           </div>
-          <div className="overflow-x-auto">
+          <div className="w-full overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-[#111110]">
                 <tr>
@@ -422,7 +422,7 @@ export default function AdminDashboard() {
             {!reports?.cancelled?.length ? (
               <p className="text-xs text-[#555552] py-4 text-center">No cancellation records</p>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="w-full overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="bg-[#111110]">
                     <tr>{['Patient','Doctor','Date & Slot','Reason','Date'].map((h) => <th key={h} className={thCls}>{h}</th>)}</tr>
@@ -451,7 +451,7 @@ export default function AdminDashboard() {
             {!reports?.noShows?.length ? (
               <p className="text-xs text-[#555552] py-4 text-center">No no-show records recorded</p>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="w-full overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="bg-[#111110]">
                     <tr>{['Patient','Phone','Doctor','Date & Slot','Notes'].map((h) => <th key={h} className={thCls}>{h}</th>)}</tr>

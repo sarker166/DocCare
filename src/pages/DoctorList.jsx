@@ -91,7 +91,7 @@ export default function DoctorList() {
         </form>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto pb-2">
+      <div className="w-full flex items-center gap-2 overflow-x-auto pb-2">
         {['All', ...departments.map((d) => d.name)].map((name) => {
           const isSelected = currentDept === name || (name === 'All' && currentDept === 'All');
           return (

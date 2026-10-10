@@ -157,7 +157,7 @@ export default function SlotPicker({ doctorId, onSelectSlot, selectedSlot, selec
           <span className="text-xs text-[#555552]">Next 14 days</span>
         </div>
 
-        <div className="flex gap-2.5 overflow-x-auto pb-2">
+        <div className="w-full flex gap-2.5 overflow-x-auto pb-2">
           {dates.map((d) => {
             const isSelected = d.dateStr === currentDate;
             const isItemToday = d.dateStr === todayStr;

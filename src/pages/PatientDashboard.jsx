@@ -219,7 +219,7 @@ export default function PatientDashboard() {
         </Link>
       </div>
 
-      <div className="border-b border-white/[0.08] flex items-center gap-4 sm:gap-6 overflow-x-auto scrollbar-none pb-px">
+      <div className="w-full border-b border-white/[0.08] flex items-center gap-4 sm:gap-6 overflow-x-auto scrollbar-none pb-px">
         <button onClick={() => setActiveTab('upcoming')} className={tabCls('upcoming') + ' whitespace-nowrap shrink-0'}>
           <span>Upcoming Visits</span>{countBadge(upcomingAppointments.length)}
         </button>
