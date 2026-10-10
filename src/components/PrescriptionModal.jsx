@@ -82,12 +82,30 @@ export default function PrescriptionModal({ isOpen, onClose, appointment, onPres
       if (isNetworkErr) {
         // Local storage fallback
         const rxNumber = `RX-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+
+        // Build full doctor object from appointment (with all fields PDF needs)
+        const doctorObj = appointment.doctorId
+          ? (typeof appointment.doctorId === 'object' ? appointment.doctorId : { _id: appointment.doctorId, name: 'Doctor', department: '', specialization: '', qualification: '', clinicAddress: '' })
+          : { name: 'Doctor', department: '', specialization: '', qualification: '', clinicAddress: '' };
+
+        // Build full patient object from appointment
+        const patientObj = appointment.patientId
+          ? (typeof appointment.patientId === 'object' ? appointment.patientId : { _id: appointment.patientId, name: 'Patient', phoneNumber: '' })
+          : { name: 'Patient', phoneNumber: '' };
+
         const localRx = {
           _id: `rx_${Date.now()}`,
           prescriptionNumber: rxNumber,
-          ...payload,
-          doctorId: appointment.doctorId,
-          patientId: appointment.patientId,
+          appointmentId: appointment._id,
+          doctorId: doctorObj,
+          patientId: patientObj,
+          vitals,
+          diagnosis: diagnosis.trim() || 'Clinical Consultation',
+          symptoms: symptoms.trim(),
+          medicines: validMedicines,
+          labTests: labTests.split(',').map(t => t.trim()).filter(Boolean),
+          advice: advice.trim(),
+          followUpDate: followUpDate.trim(),
           createdAt: new Date().toISOString(),
         };
         const storedRx = JSON.parse(localStorage.getItem('doc_local_rx') || '[]');
@@ -96,9 +114,9 @@ export default function PrescriptionModal({ isOpen, onClose, appointment, onPres
 
         // Update appointment status to completed locally
         const localAppts = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
-        const updatedAppts = localAppts.map(a => 
-          a._id === appointment._id 
-            ? { ...a, status: 'completed', hasPrescription: true, prescriptionId: localRx._id } 
+        const updatedAppts = localAppts.map(a =>
+          a._id === appointment._id
+            ? { ...a, status: 'completed', hasPrescription: true, prescriptionId: localRx._id }
             : a
         );
         localStorage.setItem('doc_local_appts', JSON.stringify(updatedAppts));

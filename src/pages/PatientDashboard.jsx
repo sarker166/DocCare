@@ -42,18 +42,27 @@ export default function PatientDashboard() {
         api.get('/appointments/my'),
         api.get('/prescriptions/my').catch(() => ({ data: [] })),
       ]);
+      const fetchedRxs = rxRes.data || [];
+      // Also merge any locally stored prescriptions
+      const localRxs = JSON.parse(localStorage.getItem('doc_local_rx') || '[]');
+      const patientRxs = localRxs.filter(rx =>
+        rx.patientId === user?._id ||
+        (rx.patientId && rx.patientId._id === user?._id)
+      );
+      // Combine, avoiding duplicates
+      const allRxs = [...fetchedRxs];
+      for (const lrx of patientRxs) {
+        if (!allRxs.some(r => r._id === lrx._id)) allRxs.push(lrx);
+      }
       setAppointments(apptsRes.data);
-      setPrescriptions(rxRes.data || []);
+      setPrescriptions(allRxs);
     } catch {
       const localAppts = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
       const localRxs = JSON.parse(localStorage.getItem('doc_local_rx') || '[]');
-      
-      // Filter prescriptions belonging to this patient
-      const patientRxs = localRxs.filter(rx => 
-        rx.patientId === user._id || 
-        (rx.patientId && rx.patientId._id === user._id)
+      const patientRxs = localRxs.filter(rx =>
+        rx.patientId === user?._id ||
+        (rx.patientId && rx.patientId._id === user?._id)
       );
-
       setAppointments(localAppts);
       setPrescriptions(patientRxs);
     } finally {
