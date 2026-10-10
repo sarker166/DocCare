@@ -4,7 +4,12 @@ import autoTableModule from 'jspdf-autotable';
 export const generatePrescriptionPdf = (prescription) => {
   if (!prescription) return;
 
-  const JsPDFClass = jsPDFModule.jsPDF || jsPDFModule.default || jsPDFModule;
+  let JsPDFClass;
+  if (typeof jsPDFModule === 'function') JsPDFClass = jsPDFModule;
+  else if (jsPDFModule && typeof jsPDFModule.jsPDF === 'function') JsPDFClass = jsPDFModule.jsPDF;
+  else if (jsPDFModule && typeof jsPDFModule.default === 'function') JsPDFClass = jsPDFModule.default;
+  else throw new Error('jsPDF library not loaded properly in Vite');
+
   const doc = new JsPDFClass({
     orientation: 'portrait',
     unit: 'mm',
@@ -231,7 +236,17 @@ export const generatePrescriptionPdf = (prescription) => {
     m.instructions || '-',
   ]);
 
-  const applyAutoTable = typeof autoTableModule === 'function' ? autoTableModule : autoTableModule.default || autoTableModule;
+  let applyAutoTable;
+  if (typeof doc.autoTable === 'function') {
+    applyAutoTable = (d, opts) => d.autoTable(opts);
+  } else if (typeof autoTableModule === 'function') {
+    applyAutoTable = autoTableModule;
+  } else if (autoTableModule && typeof autoTableModule.default === 'function') {
+    applyAutoTable = autoTableModule.default;
+  } else {
+    throw new Error('autoTable plugin not loaded properly in Vite');
+  }
+
   applyAutoTable(doc, {
     startY: currentY,
     head: [['#', 'Medicine Name', 'Dosage & Timing', 'Duration', 'Instructions']],
@@ -265,7 +280,7 @@ export const generatePrescriptionPdf = (prescription) => {
     },
   });
 
-  currentY = doc.lastAutoTable.finalY + 6;
+  currentY = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : currentY + 30) + 6;
 
   if (labTests && labTests.length > 0) {
     doc.setFillColor(248, 250, 252);

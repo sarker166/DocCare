@@ -22,7 +22,7 @@ export default function PrescriptionViewModal({ isOpen, onClose, prescription })
       toast.success('Prescription PDF downloaded successfully! 📄', { id: 'pdf-toast' });
     } catch (err) {
       console.error('PDF generation error:', err);
-      toast.error('Failed to generate PDF directly. Opening print window...', { id: 'pdf-toast' });
+      toast.error(`PDF Error: ${err.message || 'Unknown crash'}`, { id: 'pdf-toast' });
       handlePrint();
     } finally {
       setDownloading(false);

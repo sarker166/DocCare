@@ -45,8 +45,17 @@ export default function PatientDashboard() {
       setAppointments(apptsRes.data);
       setPrescriptions(rxRes.data || []);
     } catch {
-      const local = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
-      setAppointments(local);
+      const localAppts = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+      const localRxs = JSON.parse(localStorage.getItem('doc_local_rx') || '[]');
+      
+      // Filter prescriptions belonging to this patient
+      const patientRxs = localRxs.filter(rx => 
+        rx.patientId === user._id || 
+        (rx.patientId && rx.patientId._id === user._id)
+      );
+
+      setAppointments(localAppts);
+      setPrescriptions(patientRxs);
     } finally {
       setLoading(false);
     }
@@ -419,7 +428,7 @@ export default function PatientDashboard() {
                           generatePrescriptionPdf(rx);
                           toast.success('Prescription PDF downloaded! 📄', { id: 'pdf-toast' });
                         } catch (err) {
-                          toast.error('Failed to generate PDF', { id: 'pdf-toast' });
+                          toast.error(`PDF Error: ${err.message || 'Crash'}`, { id: 'pdf-toast' });
                           console.error(err);
                           handleDirectRxView(rx);
                         }
