@@ -89,6 +89,30 @@ export const AuthProvider = ({ children }) => {
         apiErr.response?.data?.notRegistered
       );
       if (canFallback) {
+        if (email === 'admin@hospital.com') {
+          if (expectedRole !== 'admin') {
+            const err = new Error('This email is reserved for Admin login only.');
+            err.response = { data: { message: err.message } };
+            throw err;
+          }
+          if (password !== 'admin123') {
+            const authErr = new Error('Invalid Admin Credentials. Only the authorized fixed admin can login.');
+            authErr.response = { data: { message: authErr.message } };
+            throw authErr;
+          }
+          const adminUser = {
+            _id: 'admin_fixed_id',
+            id: 'admin_fixed_id',
+            name: 'System Admin',
+            email: 'admin@hospital.com',
+            role: 'admin',
+          };
+          localStorage.setItem('doc_token', 'admin_fallback_token');
+          localStorage.setItem('doc_user', JSON.stringify(adminUser));
+          setUser(adminUser);
+          return adminUser;
+        }
+
         const { data: supaAuth, error: supaErr } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -185,6 +209,12 @@ export const AuthProvider = ({ children }) => {
         apiErr.response?.status >= 500
       );
       if (canFallback) {
+        if (formData.email === 'admin@hospital.com') {
+          const err = new Error('This email is reserved for system admin. You cannot register with it.');
+          err.response = { data: { message: err.message } };
+          throw err;
+        }
+
         const { data: supaAuth, error: supaErr } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
