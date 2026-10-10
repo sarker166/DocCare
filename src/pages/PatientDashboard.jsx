@@ -11,7 +11,7 @@ import {
   Calendar, Clock, MapPin, CalendarX2, RefreshCw,
   CheckCircle2, Stethoscope, Plus, FileText, Printer, Download,
 } from 'lucide-react';
-import { formatTime12h } from '../utils/timeFormat';
+import { formatTime12h, parseApptDateTime } from '../utils/timeFormat';
 import { generatePrescriptionPdf } from '../utils/generatePrescriptionPdf';
 
 const inputCls = "w-full py-2 px-3 bg-[#111110] border border-white/[0.08] rounded-xl text-xs text-white placeholder-[#555552] focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500";
@@ -69,8 +69,30 @@ export default function PatientDashboard() {
     setRxViewModalOpen(true);
   };
 
-  const upcomingAppointments = appointments.filter((a) => a.status === 'confirmed' || a.status === 'pending');
-  const pastAppointments = appointments.filter((a) => a.status !== 'confirmed' && a.status !== 'pending');
+  const now = new Date();
+  const todayStr = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+
+  const upcomingAppointments = appointments.filter((a) => {
+    if (a.status !== 'confirmed' && a.status !== 'pending') return false;
+    if (a.date < todayStr) return false;
+    
+    if (a.date === todayStr) {
+      const { end } = parseApptDateTime(a.date, a.timeSlot);
+      if (end && end <= now) return false;
+    }
+    return true;
+  });
+
+  const pastAppointments = appointments.filter((a) => {
+    if (a.status !== 'confirmed' && a.status !== 'pending') return true;
+    if (a.date < todayStr) return true;
+    
+    if (a.date === todayStr) {
+      const { end } = parseApptDateTime(a.date, a.timeSlot);
+      if (end && end <= now) return true;
+    }
+    return false;
+  });
 
   const handleCancelSubmit = async (e) => {
     e.preventDefault();

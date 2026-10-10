@@ -82,6 +82,21 @@ export default function AdminDashboard() {
     pending:    'bg-amber-500/10 text-amber-400 border border-amber-500/20',
   }[s] || 'bg-white/[0.05] text-[#888882]');
 
+  const [docSearch, setDocSearch] = useState('');
+  const [logSearch, setLogSearch] = useState('');
+
+  const filteredDoctors = doctors.filter(d => 
+    d.name?.toLowerCase().includes(docSearch.toLowerCase()) || 
+    d.department?.toLowerCase().includes(docSearch.toLowerCase()) ||
+    d.email?.toLowerCase().includes(docSearch.toLowerCase())
+  );
+
+  const filteredLogs = stats?.recentAppointments?.filter(a => 
+    a.patientId?.name?.toLowerCase().includes(logSearch.toLowerCase()) ||
+    a.doctorId?.name?.toLowerCase().includes(logSearch.toLowerCase()) ||
+    a.reason?.toLowerCase().includes(logSearch.toLowerCase())
+  ) || [];
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-purple-900/40 to-indigo-900/30 border border-purple-500/20 rounded-3xl p-6 sm:p-8 text-white">
@@ -97,8 +112,9 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
         {[
+          { label: 'Total Patients', value: metrics?.totalPatients || 0, sub: 'Registered users', icon: <Building2 className="w-4 h-4 text-sky-400" />, color: 'text-sky-400' },
           { label: 'Total Bookings', value: metrics?.totalAppointments || 0, sub: `${metrics?.todayAppointments || 0} today`, icon: <Calendar className="w-4 h-4 text-teal-400" />, color: 'text-teal-400' },
           { label: 'Completed Visits', value: metrics?.completedAppointments || 0, sub: `${metrics?.completedAppointments || 0} consultations served`, icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" />, color: 'text-emerald-400' },
           { label: 'Cancellations', value: metrics?.cancelledAppointments || 0, sub: 'Slots released back', icon: <XCircle className="w-4 h-4 text-rose-400" />, color: 'text-rose-400' },
@@ -133,7 +149,16 @@ export default function AdminDashboard() {
 
       {activeTab === 'overview' && (
         <div className="bg-[#1a1a18] rounded-3xl border border-white/[0.08] p-6 space-y-4">
-          <h3 className="font-bold text-white text-base">Latest Appointments Log</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <h3 className="font-bold text-white text-base">Latest Appointments Log</h3>
+            <input 
+              type="text" 
+              placeholder="Search patients or doctors..." 
+              value={logSearch} 
+              onChange={(e) => setLogSearch(e.target.value)} 
+              className={`${inputCls} max-w-xs`} 
+            />
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-[#111110]">
@@ -144,7 +169,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
-                {stats?.recentAppointments?.map((a) => (
+                {filteredLogs.map((a) => (
                   <tr key={a._id} className="hover:bg-white/[0.02]">
                     <td className={tdCls + ' font-bold text-white'}>{a.patientId?.name || 'User'}</td>
                     <td className={tdCls}>{a.doctorId?.name || 'Doctor'}</td>
@@ -158,15 +183,25 @@ export default function AdminDashboard() {
                 ))}
               </tbody>
             </table>
+            {filteredLogs.length === 0 && <p className="text-xs text-[#555552] p-4 text-center">No matching records</p>}
           </div>
         </div>
       )}
 
       {activeTab === 'doctors' && (
         <div className="bg-[#1a1a18] rounded-3xl border border-white/[0.08] p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-white text-base">Physician Accounts &amp; Approvals</h3>
-            <span className="text-xs text-[#888882]">Review qualifications and toggle approval</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-bold text-white text-base">Physician Accounts &amp; Approvals</h3>
+              <span className="text-xs text-[#888882]">Review qualifications and toggle approval</span>
+            </div>
+            <input 
+              type="text" 
+              placeholder="Search doctors by name, email or dept..." 
+              value={docSearch} 
+              onChange={(e) => setDocSearch(e.target.value)} 
+              className={`${inputCls} max-w-xs`} 
+            />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -178,7 +213,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
-                {doctors.map((d) => (
+                {filteredDoctors.map((d) => (
                   <tr key={d._id} className="hover:bg-white/[0.02]">
                     <td className="p-3">
                       <div className="flex items-center gap-3">
