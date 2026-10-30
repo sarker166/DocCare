@@ -5,6 +5,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 5000,
 });
 
 api.interceptors.request.use(
@@ -27,6 +28,11 @@ api.interceptors.response.use(
         localStorage.removeItem('doc_user');
         window.location.href = '/login?expired=true';
       }
+    }
+    // Normalize static host 405 (Method Not Allowed) or 404 into a clean network error
+    if (error.response?.status === 405 || error.response?.status === 404) {
+      error.code = 'ERR_NETWORK';
+      error.message = 'Network Error';
     }
     return Promise.reject(error);
   }

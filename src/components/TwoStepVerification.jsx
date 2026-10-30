@@ -56,7 +56,11 @@ export default function TwoStepVerification({
       toast.success(user.role === 'doctor' ? 'Welcome Dr. ' + (user.name || '') : 'Welcome back, ' + (user.name || '') + '!');
       if (onSuccess) onSuccess(user);
     } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Invalid or expired verification code');
+      let msg = err.response?.data?.message || err.message || 'Invalid or expired verification code';
+      if (msg.includes('405') || msg.includes('status code')) {
+        msg = 'Invalid or expired verification code';
+      }
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

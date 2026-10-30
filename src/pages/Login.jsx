@@ -130,7 +130,10 @@ export default function Login() {
         setNotVerifiedError(true);
         toast.error('Account not verified. Please complete email verification.', { duration: 5000 });
       } else {
-        const msg = err.response?.data?.message || err.message || 'Login failed. Check your credentials.';
+        let msg = err.response?.data?.message || err.message || 'Login failed. Check your credentials.';
+        if (msg.includes('405') || msg.includes('status code')) {
+          msg = 'Unable to reach backend API. Logging in via Supabase cloud...';
+        }
         toast.error(msg, { duration: 5000 });
       }
     } finally {

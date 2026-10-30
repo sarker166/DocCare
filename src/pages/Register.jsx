@@ -136,7 +136,10 @@ export default function Register() {
         navigate(role === 'doctor' ? '/doctor' : '/patient');
       }
     } catch (err) {
-      const msg = err.message || err.response?.data?.message || 'Registration failed.';
+      let msg = err.message || err.response?.data?.message || 'Registration failed.';
+      if (msg.includes('405') || msg.includes('status code')) {
+        msg = 'Registration failed. Please check your credentials or network connection.';
+      }
       toast.error(msg, { duration: 5000 });
       if (err.response?.data?.alreadyRegistered) {
         setEmailError('This email is already registered. Please go to Login.');
