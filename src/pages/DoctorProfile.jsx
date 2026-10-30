@@ -81,7 +81,7 @@ export default function DoctorProfile() {
         toast.error(err.response?.data?.message || '⚠️ Slot Conflict: This slot has already been confirmed for another patient. Please pick another.');
         setSelectedSlot(null);
       } else {
-        const isNetworkErr = !err.response || err.code === 'ERR_NETWORK';
+        const isNetworkErr = !err.response || err.code === 'ERR_NETWORK' || err.response?.status === 405 || err.response?.status === 404;
         if (isNetworkErr) {
           const existingAppts = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
           const isConfirmedLocally = existingAppts.some(

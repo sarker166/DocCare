@@ -74,7 +74,7 @@ export default function AdminDashboard() {
       fetchAdminData();
     } catch (err) {
       // Fallback: remove from local storage if backend unreachable
-      const isNetworkErr = !err.response || err.code === 'ERR_NETWORK';
+      const isNetworkErr = !err.response || err.code === 'ERR_NETWORK' || err.response?.status === 405 || err.response?.status === 404;
       if (isNetworkErr) {
         const local = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
         const updated = local.filter(a => a._id !== apptId);

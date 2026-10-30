@@ -78,7 +78,7 @@ export default function PrescriptionModal({ isOpen, onClose, appointment, onPres
       }
       onClose();
     } catch (err) {
-      const isNetworkErr = !err.response || err.code === 'ERR_NETWORK';
+      const isNetworkErr = !err.response || err.code === 'ERR_NETWORK' || err.response?.status === 405 || err.response?.status === 404;
       if (isNetworkErr) {
         // Local storage fallback
         const rxNumber = `RX-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;

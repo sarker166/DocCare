@@ -78,8 +78,8 @@ export default function PatientDashboard() {
       setSelectedRx(res.data);
       setRxViewModalOpen(true);
     } catch (err) {
-      const isNetworkErr = !err.response || err.code === 'ERR_NETWORK';
-      if (isNetworkErr || err.response?.status === 404) {
+      const isNetworkErr = !err.response || err.code === 'ERR_NETWORK' || err.response?.status === 405 || err.response?.status === 404;
+      if (isNetworkErr) {
         const localRxs = JSON.parse(localStorage.getItem('doc_local_rx') || '[]');
         const localRx = localRxs.find(rx => rx.appointmentId === appt._id);
         if (localRx) {

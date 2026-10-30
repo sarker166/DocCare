@@ -83,7 +83,13 @@ export const AuthProvider = ({ children }) => {
       if (userData.doctorProfile) setDoctorProfile(userData.doctorProfile);
       return userData;
     } catch (apiErr) {
-      const isNetworkError = !apiErr.response || apiErr.code === 'ERR_NETWORK' || apiErr.message?.includes('Network Error');
+      const isNetworkError =
+        !apiErr.response ||
+        apiErr.code === 'ERR_NETWORK' ||
+        apiErr.message?.includes('Network Error') ||
+        apiErr.response?.status === 405 ||
+        apiErr.response?.status === 404 ||
+        apiErr.response?.status >= 500;
 
       if (isNetworkError && isSupabaseConfigured && supabase) {
         try {
@@ -170,15 +176,18 @@ export const AuthProvider = ({ children }) => {
           if (fallbackErr.response?.data?.roleMismatch) {
             throw fallbackErr;
           }
+          if (fallbackErr.message && !fallbackErr.message.toLowerCase().includes('fetch')) {
+            throw fallbackErr;
+          }
           console.warn('Supabase fallback login failed:', fallbackErr);
-          const customNetErr = new Error('Cannot connect to DocCare backend server. Please make sure the backend is running on http://localhost:5000 (run start-app.bat or npm run server).');
+          const customNetErr = new Error('Cannot connect to authentication service. Please check your credentials or network connection.');
           customNetErr.code = 'ERR_NETWORK';
           throw customNetErr;
         }
       }
 
       if (isNetworkError) {
-        const customNetErr = new Error('Cannot connect to DocCare backend server. Please make sure the backend is running on http://localhost:5000 (run start-app.bat or npm run server).');
+        const customNetErr = new Error('Cannot connect to DocCare server. Please check your network connection.');
         customNetErr.code = 'ERR_NETWORK';
         throw customNetErr;
       }
@@ -217,7 +226,13 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
       return localRes.data;
     } catch (apiErr) {
-      const isNetworkError = !apiErr.response || apiErr.code === 'ERR_NETWORK' || apiErr.message?.includes('Network Error');
+      const isNetworkError =
+        !apiErr.response ||
+        apiErr.code === 'ERR_NETWORK' ||
+        apiErr.message?.includes('Network Error') ||
+        apiErr.response?.status === 405 ||
+        apiErr.response?.status === 404 ||
+        apiErr.response?.status >= 500;
 
       if (isNetworkError && isSupabaseConfigured && supabase) {
         try {
@@ -274,15 +289,18 @@ export const AuthProvider = ({ children }) => {
           setUser(supaUser);
           return supaUser;
         } catch (fallbackErr) {
+          if (fallbackErr.message && !fallbackErr.message.toLowerCase().includes('fetch')) {
+            throw fallbackErr;
+          }
           console.warn('Supabase registration failed:', fallbackErr);
-          const customNetErr = new Error('Cannot connect to DocCare backend server. Please make sure the backend is running on http://localhost:5000 (run start-app.bat or npm run server).');
+          const customNetErr = new Error('Cannot connect to authentication service. Please check your network connection.');
           customNetErr.code = 'ERR_NETWORK';
           throw customNetErr;
         }
       }
 
       if (isNetworkError) {
-        const customNetErr = new Error('Cannot connect to DocCare backend server. Please make sure the backend is running on http://localhost:5000 (run start-app.bat or npm run server).');
+        const customNetErr = new Error('Cannot connect to DocCare server. Please check your network connection.');
         customNetErr.code = 'ERR_NETWORK';
         throw customNetErr;
       }
