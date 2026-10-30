@@ -11,6 +11,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const fetchSupabaseProfile = async (userId) => {
+    if (!isSupabaseConfigured || !supabase) return;
     try {
       const { data: prof, error } = await supabase
         .from('profiles')
@@ -32,7 +33,7 @@ export const AuthProvider = ({ children }) => {
         }
       }
     } catch (err) {
-      console.error(err);
+      console.warn('Supabase profile fetch error:', err);
     }
   };
 
@@ -53,7 +54,7 @@ export const AuthProvider = ({ children }) => {
             if (res.data.doctorProfile) setDoctorProfile(res.data.doctorProfile);
             localStorage.setItem('doc_user', JSON.stringify(res.data));
           } catch (apiErr) {
-            if (isSupabaseConfigured && parsed.id) {
+            if (isSupabaseConfigured && supabase && parsed.id) {
               await fetchSupabaseProfile(parsed.id);
             }
           }
@@ -82,93 +83,106 @@ export const AuthProvider = ({ children }) => {
       if (userData.doctorProfile) setDoctorProfile(userData.doctorProfile);
       return userData;
     } catch (apiErr) {
-      const canFallback = isSupabaseConfigured && (
-        !apiErr.response ||
-        apiErr.code === 'ERR_NETWORK' ||
-        apiErr.response?.status === 404 ||
-        apiErr.response?.data?.notRegistered
-      );
-      if (canFallback) {
-        if (email === 'admin@hospital.com') {
-          if (expectedRole !== 'admin') {
-            const err = new Error('This email is reserved for Admin login only.');
-            err.response = { data: { message: err.message } };
-            throw err;
+      const isNetworkError = !apiErr.response || apiErr.code === 'ERR_NETWORK' || apiErr.message?.includes('Network Error');
+
+      if (isNetworkError && isSupabaseConfigured && supabase) {
+        try {
+          if (email === 'admin@hospital.com') {
+            if (expectedRole !== 'admin') {
+              const err = new Error('This email is reserved for Admin login only.');
+              err.response = { data: { message: err.message } };
+              throw err;
+            }
+            if (password !== 'admin123') {
+              const authErr = new Error('Invalid Admin Credentials. Only the authorized fixed admin can login.');
+              authErr.response = { data: { message: authErr.message } };
+              throw authErr;
+            }
+            const adminUser = {
+              _id: 'admin_fixed_id',
+              id: 'admin_fixed_id',
+              name: 'System Admin',
+              email: 'admin@hospital.com',
+              role: 'admin',
+            };
+            localStorage.setItem('doc_token', 'admin_fallback_token');
+            localStorage.setItem('doc_user', JSON.stringify(adminUser));
+            setUser(adminUser);
+            return adminUser;
           }
-          if (password !== 'admin123') {
-            const authErr = new Error('Invalid Admin Credentials. Only the authorized fixed admin can login.');
-            authErr.response = { data: { message: authErr.message } };
-            throw authErr;
+
+          const { data: supaAuth, error: supaErr } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+
+          if (supaErr) {
+            throw new Error(supaErr.message);
           }
-          const adminUser = {
-            _id: 'admin_fixed_id',
-            id: 'admin_fixed_id',
-            name: 'System Admin',
-            email: 'admin@hospital.com',
-            role: 'admin',
-          };
-          localStorage.setItem('doc_token', 'admin_fallback_token');
-          localStorage.setItem('doc_user', JSON.stringify(adminUser));
-          setUser(adminUser);
-          return adminUser;
-        }
 
-        const { data: supaAuth, error: supaErr } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (supaErr) {
-          throw new Error(supaErr.message);
-        }
-
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', supaAuth.user.id)
-          .single();
-
-        const userRole = prof?.role || supaAuth.user?.user_metadata?.role || 'patient';
-        if (expectedRole && userRole !== expectedRole) {
-          await supabase.auth.signOut();
-          const mismatchErr = new Error(`Role mismatch: Account is registered as ${userRole}, not ${expectedRole}`);
-          mismatchErr.response = {
-            data: {
-              roleMismatch: true,
-              message: `Role mismatch: This account is registered as ${userRole}. Please switch to the ${userRole} tab.`,
-              actualRole: userRole,
-            },
-          };
-          throw mismatchErr;
-        }
-
-        let docProf = null;
-        if (userRole === 'doctor') {
-          const { data: docData } = await supabase
-            .from('doctors')
+          const { data: prof } = await supabase
+            .from('profiles')
             .select('*')
-            .eq('user_id', supaAuth.user.id)
+            .eq('id', supaAuth.user.id)
             .single();
-          docProf = docData;
-          if (docProf) setDoctorProfile(docProf);
+
+          const userRole = prof?.role || supaAuth.user?.user_metadata?.role || 'patient';
+          if (expectedRole && userRole !== expectedRole) {
+            await supabase.auth.signOut();
+            const mismatchErr = new Error(`Role mismatch: Account is registered as ${userRole}, not ${expectedRole}`);
+            mismatchErr.response = {
+              data: {
+                roleMismatch: true,
+                message: `Role mismatch: This account is registered as ${userRole}. Please switch to the ${userRole} tab.`,
+                actualRole: userRole,
+              },
+            };
+            throw mismatchErr;
+          }
+
+          let docProf = null;
+          if (userRole === 'doctor') {
+            const { data: docData } = await supabase
+              .from('doctors')
+              .select('*')
+              .eq('user_id', supaAuth.user.id)
+              .single();
+            docProf = docData;
+            if (docProf) setDoctorProfile(docProf);
+          }
+
+          const supaUser = {
+            _id: supaAuth.user.id,
+            id: supaAuth.user.id,
+            name: prof?.name || supaAuth.user?.user_metadata?.name || 'User',
+            email: supaAuth.user.email,
+            phoneNumber: prof?.phone || supaAuth.user?.user_metadata?.phoneNumber || '',
+            role: userRole,
+            doctorProfile: docProf,
+          };
+
+          const token = supaAuth.session?.access_token || 'supa_token_' + Date.now();
+          localStorage.setItem('doc_token', token);
+          localStorage.setItem('doc_user', JSON.stringify(supaUser));
+          setUser(supaUser);
+          return supaUser;
+        } catch (fallbackErr) {
+          if (fallbackErr.response?.data?.roleMismatch) {
+            throw fallbackErr;
+          }
+          console.warn('Supabase fallback login failed:', fallbackErr);
+          const customNetErr = new Error('Cannot connect to DocCare backend server. Please make sure the backend is running on http://localhost:5000 (run start-app.bat or npm run server).');
+          customNetErr.code = 'ERR_NETWORK';
+          throw customNetErr;
         }
-
-        const supaUser = {
-          _id: supaAuth.user.id,
-          id: supaAuth.user.id,
-          name: prof?.name || supaAuth.user?.user_metadata?.name || 'User',
-          email: supaAuth.user.email,
-          phoneNumber: prof?.phone || supaAuth.user?.user_metadata?.phoneNumber || '',
-          role: userRole,
-          doctorProfile: docProf,
-        };
-
-        const token = supaAuth.session?.access_token || 'supa_token_' + Date.now();
-        localStorage.setItem('doc_token', token);
-        localStorage.setItem('doc_user', JSON.stringify(supaUser));
-        setUser(supaUser);
-        return supaUser;
       }
+
+      if (isNetworkError) {
+        const customNetErr = new Error('Cannot connect to DocCare backend server. Please make sure the backend is running on http://localhost:5000 (run start-app.bat or npm run server).');
+        customNetErr.code = 'ERR_NETWORK';
+        throw customNetErr;
+      }
+
       throw apiErr;
     }
   };
@@ -203,75 +217,87 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
       return localRes.data;
     } catch (apiErr) {
-      const canFallback = isSupabaseConfigured && (
-        !apiErr.response ||
-        apiErr.code === 'ERR_NETWORK' ||
-        apiErr.response?.status >= 500
-      );
-      if (canFallback) {
-        if (formData.email === 'admin@hospital.com') {
-          const err = new Error('This email is reserved for system admin. You cannot register with it.');
-          err.response = { data: { message: err.message } };
-          throw err;
-        }
+      const isNetworkError = !apiErr.response || apiErr.code === 'ERR_NETWORK' || apiErr.message?.includes('Network Error');
 
-        const { data: supaAuth, error: supaErr } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: {
-              name: formData.name,
-              phoneNumber: formData.phoneNumber || '',
-              role: role,
+      if (isNetworkError && isSupabaseConfigured && supabase) {
+        try {
+          if (formData.email === 'admin@hospital.com') {
+            const err = new Error('This email is reserved for system admin. You cannot register with it.');
+            err.response = { data: { message: err.message } };
+            throw err;
+          }
+
+          const { data: supaAuth, error: supaErr } = await supabase.auth.signUp({
+            email: formData.email,
+            password: formData.password,
+            options: {
+              data: {
+                name: formData.name,
+                phoneNumber: formData.phoneNumber || '',
+                role: role,
+              },
             },
-          },
-        });
+          });
 
-        if (supaErr) {
-          throw new Error(supaErr.message);
+          if (supaErr) {
+            throw new Error(supaErr.message);
+          }
+
+          const supaUser = {
+            _id: supaAuth.user?.id,
+            id: supaAuth.user?.id,
+            name: formData.name,
+            email: formData.email,
+            phoneNumber: formData.phoneNumber || '',
+            role: role,
+          };
+
+          if (role === 'doctor' && supaAuth.user?.id) {
+            await supabase.from('doctors').insert([
+              {
+                user_id: supaAuth.user.id,
+                specialization: formData.specialization || 'General Physician',
+                department: formData.department || 'General Medicine',
+                qualification: formData.qualification || 'MBBS',
+                experience: Number(formData.experience) || 1,
+                consultation_fee: Number(formData.consultationFee) || 500,
+                bio: formData.bio || '',
+                clinic_address: formData.clinicAddress || 'Main Chamber',
+                approval_status: 'approved',
+              },
+            ]);
+          }
+
+          const token = supaAuth.session?.access_token || 'supa_token_' + Date.now();
+          localStorage.setItem('doc_token', token);
+          localStorage.setItem('doc_user', JSON.stringify(supaUser));
+          setUser(supaUser);
+          return supaUser;
+        } catch (fallbackErr) {
+          console.warn('Supabase registration failed:', fallbackErr);
+          const customNetErr = new Error('Cannot connect to DocCare backend server. Please make sure the backend is running on http://localhost:5000 (run start-app.bat or npm run server).');
+          customNetErr.code = 'ERR_NETWORK';
+          throw customNetErr;
         }
-
-        const supaUser = {
-          _id: supaAuth.user?.id,
-          id: supaAuth.user?.id,
-          name: formData.name,
-          email: formData.email,
-          phoneNumber: formData.phoneNumber || '',
-          role: role,
-        };
-
-        if (role === 'doctor' && supaAuth.user?.id) {
-          await supabase.from('doctors').insert([
-            {
-              user_id: supaAuth.user.id,
-              specialization: formData.specialization || 'General Physician',
-              department: formData.department || 'General Medicine',
-              qualification: formData.qualification || 'MBBS',
-              experience: Number(formData.experience) || 1,
-              consultation_fee: Number(formData.consultationFee) || 500,
-              bio: formData.bio || '',
-              clinic_address: formData.clinicAddress || 'Main Chamber',
-              approval_status: 'approved',
-            },
-          ]);
-        }
-
-        const token = supaAuth.session?.access_token || 'supa_token_' + Date.now();
-        localStorage.setItem('doc_token', token);
-        localStorage.setItem('doc_user', JSON.stringify(supaUser));
-        setUser(supaUser);
-        return supaUser;
       }
+
+      if (isNetworkError) {
+        const customNetErr = new Error('Cannot connect to DocCare backend server. Please make sure the backend is running on http://localhost:5000 (run start-app.bat or npm run server).');
+        customNetErr.code = 'ERR_NETWORK';
+        throw customNetErr;
+      }
+
       throw apiErr;
     }
   };
 
   const logout = async () => {
     try {
-      if (isSupabaseConfigured) {
+      if (isSupabaseConfigured && supabase) {
         await supabase.auth.signOut();
       }
     } catch (e) {
+      console.warn('Supabase signout notice:', e);
     }
     localStorage.removeItem('doc_token');
     localStorage.removeItem('doc_user');
@@ -287,7 +313,7 @@ export const AuthProvider = ({ children }) => {
       if (res.data.doctorProfile) setDoctorProfile(res.data.doctorProfile);
       localStorage.setItem('doc_user', JSON.stringify(res.data));
     } catch (err) {
-      if (isSupabaseConfigured && user?.id) {
+      if (isSupabaseConfigured && supabase && user?.id) {
         await fetchSupabaseProfile(user.id);
       }
     }

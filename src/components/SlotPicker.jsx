@@ -188,20 +188,24 @@ export default function SlotPicker({ doctorId, onSelectSlot, selectedSlot, selec
 
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/[0.06] text-xs">
         <span className="text-[#888882] font-medium flex items-center gap-1.5">
-          <Clock className="w-4 h-4 text-teal-400" /> Available Time Slots:
+          <Clock className="w-4 h-4 text-teal-400" /> Slot Status Guide:
         </span>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-md border border-teal-500 bg-[#111110]" />
-            <span className="text-[#888882]">Available</span>
+            <span className="text-[#888882]">Available (Open for Appeal)</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-md bg-teal-600" />
             <span className="text-[#888882]">Selected</span>
           </div>
           <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-md bg-[#111110] border border-white/[0.04] opacity-50" />
+            <span className="text-[#555552] line-through">Confirmed / Locked</span>
+          </div>
+          <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-md bg-[#141412] border border-white/[0.04]" />
-            <span className="text-[#555552]">Passed / Expired</span>
+            <span className="text-[#555552]">Passed</span>
           </div>
         </div>
       </div>
@@ -244,15 +248,31 @@ export default function SlotPicker({ doctorId, onSelectSlot, selectedSlot, selec
                       disabled={isDis}
                       onClick={() => onSelectSlot(label12h)}
                       className={slotCls(isSel, isPast, slot.isBooked)}
-                      title={isPast ? 'This time slot has already passed today' : isDis ? 'Already reserved' : 'Select slot'}
+                      title={
+                        isPast
+                          ? 'This time slot has already passed today'
+                          : slot.isBooked
+                          ? 'Doctor has confirmed an appointment for this slot. No further appeals permitted.'
+                          : slot.pendingAppeals > 0
+                          ? `${slot.pendingAppeals} patient appeal(s) submitted. You can still apply before doctor accepts.`
+                          : 'Available for appointment appeal'
+                      }
                     >
                       {isSel && <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />}
-                      <span className={isPast ? 'line-through' : 'truncate'}>{label12h}</span>
-                      {isPast && (
+                      <span className={isPast || slot.isBooked ? 'line-through' : 'truncate'}>{label12h}</span>
+                      {slot.isBooked ? (
+                        <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold ml-1">
+                          Full
+                        </span>
+                      ) : isPast ? (
                         <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-red-500/10 text-red-400 border border-red-500/20 font-bold ml-1">
                           Passed
                         </span>
-                      )}
+                      ) : slot.pendingAppeals > 0 ? (
+                        <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-medium ml-1">
+                          {slot.pendingAppeals} appeal{slot.pendingAppeals > 1 ? 's' : ''}
+                        </span>
+                      ) : null}
                     </button>
                   );
                 })}
@@ -291,15 +311,31 @@ export default function SlotPicker({ doctorId, onSelectSlot, selectedSlot, selec
                       disabled={isDis}
                       onClick={() => onSelectSlot(label12h)}
                       className={slotCls(isSel, isPast, slot.isBooked)}
-                      title={isPast ? 'This time slot has already passed today' : isDis ? 'Already reserved' : 'Select slot'}
+                      title={
+                        isPast
+                          ? 'This time slot has already passed today'
+                          : slot.isBooked
+                          ? 'Doctor has confirmed an appointment for this slot. No further appeals permitted.'
+                          : slot.pendingAppeals > 0
+                          ? `${slot.pendingAppeals} patient appeal(s) submitted. You can still apply before doctor accepts.`
+                          : 'Available for appointment appeal'
+                      }
                     >
                       {isSel && <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />}
-                      <span className={isPast ? 'line-through' : 'truncate'}>{label12h}</span>
-                      {isPast && (
+                      <span className={isPast || slot.isBooked ? 'line-through' : 'truncate'}>{label12h}</span>
+                      {slot.isBooked ? (
+                        <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold ml-1">
+                          Full
+                        </span>
+                      ) : isPast ? (
                         <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-red-500/10 text-red-400 border border-red-500/20 font-bold ml-1">
                           Passed
                         </span>
-                      )}
+                      ) : slot.pendingAppeals > 0 ? (
+                        <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-medium ml-1">
+                          {slot.pendingAppeals} appeal{slot.pendingAppeals > 1 ? 's' : ''}
+                        </span>
+                      ) : null}
                     </button>
                   );
                 })}

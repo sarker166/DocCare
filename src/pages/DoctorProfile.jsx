@@ -78,11 +78,21 @@ export default function DoctorProfile() {
       setSelectedSlot(null);
     } catch (err) {
       if (err.response?.status === 409) {
-        toast.error('⚠️ Slot Conflict: This slot was just reserved. Please pick another.');
+        toast.error(err.response?.data?.message || '⚠️ Slot Conflict: This slot has already been confirmed for another patient. Please pick another.');
         setSelectedSlot(null);
       } else {
         const isNetworkErr = !err.response || err.code === 'ERR_NETWORK';
         if (isNetworkErr) {
+          const existingAppts = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+          const isConfirmedLocally = existingAppts.some(
+            (a) => a.date === selectedDate && a.timeSlot === selectedSlot && (a.status === 'confirmed' || a.status === 'completed')
+          );
+          if (isConfirmedLocally) {
+            toast.error('⚠️ This time slot has already been confirmed for another patient. No more appeals can be made.');
+            setSelectedSlot(null);
+            return;
+          }
+
           const fallbackBooking = {
             _id: 'appt_' + Date.now(),
             doctorId: doctor || { name: 'Specialist Physician', clinicAddress: 'Main Chamber' },
@@ -94,12 +104,11 @@ export default function DoctorProfile() {
             reason: reason || 'General Consultation',
             createdAt: new Date().toISOString()
           };
-          const existingAppts = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
           localStorage.setItem('doc_local_appts', JSON.stringify([fallbackBooking, ...existingAppts]));
           setBookedDetails(fallbackBooking);
           setSuccessModalOpen(true);
           setSelectedSlot(null);
-          toast.success('Appointment request submitted! Pending doctor approval ⏳');
+          toast.success('Appointment appeal submitted! Pending doctor review ⏳');
         } else {
           toast.error(err.response?.data?.message || 'Booking failed');
         }

@@ -5,16 +5,24 @@ import toast from 'react-hot-toast';
 
 export default function TwoStepVerification({
   email,
+  devCode,
   onSuccess,
   onBack,
   actionText = 'Verify & Sign In',
 }) {
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(devCode || '');
+  const [activeDevCode, setActiveDevCode] = useState(devCode || '');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [timer, setTimer] = useState(30);
   const { verify2FA, resend2FA } = useAuth();
   const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (devCode) {
+      setActiveDevCode(devCode);
+    }
+  }, [devCode]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -58,10 +66,11 @@ export default function TwoStepVerification({
     if (timer > 0 || resending) return;
     setResending(true);
     try {
-      await resend2FA(email);
+      const res = await resend2FA(email);
+      if (res?.devCode) setActiveDevCode(res.devCode);
       toast.success('A new 6-digit verification code has been sent to your email!');
       setTimer(30);
-      setCode('');
+      setCode(res?.devCode || '');
       inputRef.current?.focus();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to resend code');
@@ -80,11 +89,27 @@ export default function TwoStepVerification({
         <p className="text-xs text-slate-500 max-w-xs mx-auto">
           We have sent a secure 6-digit code to{' '}
           <strong className="text-sky-600 font-semibold">{email}</strong>.
-          Please check your Gmail inbox.
+          Please check your email inbox.
         </p>
       </div>
 
       <div className="bg-white p-8 rounded-3xl border border-slate-200/90 shadow-2xl relative overflow-hidden space-y-5">
+        {activeDevCode && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between text-xs text-amber-900 animate-in fade-in">
+            <span className="font-semibold">Test Code: <strong className="font-mono text-sm tracking-widest text-amber-950 ml-1 font-extrabold">{activeDevCode}</strong></span>
+            <button
+              type="button"
+              onClick={() => {
+                setCode(activeDevCode);
+                inputRef.current?.focus();
+              }}
+              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition-colors text-[11px] shadow-sm"
+            >
+              Auto-Fill
+            </button>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider text-center mb-2.5">

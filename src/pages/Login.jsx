@@ -25,6 +25,7 @@ export default function Login() {
   const [notRegisteredError, setNotRegisteredError] = useState(false);
   const [notVerifiedError, setNotVerifiedError] = useState(false);
   const [roleMismatchError, setRoleMismatchError] = useState(null);
+  const [devCode, setDevCode] = useState('');
 
   const { user, login, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -107,6 +108,7 @@ export default function Login() {
       const result = await login(cleanEmail, password, activeRole);
 
       if (result?.requires2FA) {
+        if (result?.devCode) setDevCode(result.devCode);
         setStep('2fa');
         toast('Two-step verification code sent to your email!', { icon: '🔐' });
       } else {
@@ -239,6 +241,7 @@ export default function Login() {
       {step === '2fa' ? (
         <TwoStepVerification
           email={email.trim()}
+          devCode={devCode}
           onSuccess={handleSuccessfulAuth}
           onBack={() => setStep('credentials')}
           actionText={

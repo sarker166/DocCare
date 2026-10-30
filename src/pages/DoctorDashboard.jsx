@@ -106,15 +106,33 @@ export default function DoctorDashboard() {
   const handleAcceptAppointment = async (appt) => {
     setStatusLoading(true);
     try {
-      await api.patch(`/appointments/${appt._id}/status`, { status: 'confirmed' });
-      toast.success(`Appointment accepted for ${appt.patientId?.name || 'patient'}! ✅`);
+      const res = await api.patch(`/appointments/${appt._id}/status`, { status: 'confirmed' });
+      const autoDeclined = res.data?.autoDeclinedCount || 0;
+      if (autoDeclined > 0) {
+        toast.success(`Appointment accepted for ${appt.patientId?.name || 'patient'}! ${autoDeclined} other competing appeal(s) for this slot were automatically closed. ✅`, { duration: 6000 });
+      } else {
+        toast.success(`Appointment accepted for ${appt.patientId?.name || 'patient'}! ✅`);
+      }
       fetchData();
     } catch (err) {
       const local = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
-      const updated = local.map((a) => (a._id === appt._id ? { ...a, status: 'confirmed' } : a));
+      const updated = local.map((a) => {
+        if (a._id === appt._id) {
+          return { ...a, status: 'confirmed' };
+        }
+        if (a.date === appt.date && a.timeSlot === appt.timeSlot && a.status === 'pending') {
+          return {
+            ...a,
+            status: 'cancelled',
+            cancelledBy: 'doctor',
+            cancellationReason: 'Doctor accepted another patient request for this slot',
+          };
+        }
+        return a;
+      });
       localStorage.setItem('doc_local_appts', JSON.stringify(updated));
-      setAppointments((prev) => prev.map((a) => (a._id === appt._id ? { ...a, status: 'confirmed' } : a)));
-      toast.success(`Appointment accepted for ${appt.patientId?.name || 'patient'}! ✅`);
+      setAppointments(updated);
+      toast.success(err.response?.data?.message || `Appointment accepted for ${appt.patientId?.name || 'patient'}! ✅`);
     } finally {
       setStatusLoading(false);
     }
@@ -252,6 +270,12 @@ export default function DoctorDashboard() {
 
   const pendingAppointments = appointments.filter((a) => a.status === 'pending');
 
+  const slotAppealsMap = {};
+  pendingAppointments.forEach((a) => {
+    const key = `${a.date}_${a.timeSlot}`;
+    slotAppealsMap[key] = (slotAppealsMap[key] || 0) + 1;
+  });
+
   const statusBadgeCls = (s) => ({
     pending:    'bg-amber-500/10 text-amber-400 border border-amber-500/20',
     confirmed:  'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
@@ -346,51 +370,62 @@ export default function DoctorDashboard() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                {pendingAppointments.map((appt) => (
-                  <div key={appt._id} className="bg-[#141412] rounded-2xl border border-amber-500/20 p-5 space-y-3 shadow-md">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20 font-mono">
-                          {appt.date} • {formatTime12h(appt.timeSlot)}
+                {pendingAppointments.map((appt) => {
+                  const appealsCount = slotAppealsMap[`${appt.date}_${appt.timeSlot}`] || 1;
+                  return (
+                    <div key={appt._id} className="bg-[#141412] rounded-2xl border border-amber-500/20 p-5 space-y-3 shadow-md">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20 font-mono">
+                            {appt.date} • {formatTime12h(appt.timeSlot)}
+                          </span>
+                          <h4 className="font-bold text-base text-white mt-2">{appt.patientId?.name || 'Patient'}</h4>
+                          <p className="text-xs text-[#888882]">Phone: <strong className="text-white">{appt.patientId?.phoneNumber || 'N/A'}</strong> • {appt.patientId?.email}</p>
+                        </div>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          Pending
                         </span>
-                        <h4 className="font-bold text-base text-white mt-2">{appt.patientId?.name || 'Patient'}</h4>
-                        <p className="text-xs text-[#888882]">Phone: <strong className="text-white">{appt.patientId?.phoneNumber || 'N/A'}</strong> • {appt.patientId?.email}</p>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                        Pending
-                      </span>
-                    </div>
 
-                    <div className="p-3 rounded-xl bg-[#0c0c0a] border border-white/[0.06] text-xs text-[#888882] space-y-1">
-                      <p><strong className="text-white">Chief Complaint: </strong>{appt.reason || 'General Consultation'}</p>
-                      {appt.notes && <p className="italic text-[#666660]"><strong>Patient Note: </strong>{appt.notes}</p>}
-                    </div>
+                      {appealsCount > 1 && (
+                        <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between text-[11px] text-amber-300">
+                          <span className="font-bold">⚡ Slot Competition ({appealsCount} applicants)</span>
+                          <span className="text-[10px] text-amber-400/80">Accepting this closes other appeals</span>
+                        </div>
+                      )}
 
-                    <div className="pt-2 border-t border-white/[0.06] flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleAcceptAppointment(appt)}
-                        disabled={statusLoading}
-                        className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-700/20 active:scale-95 disabled:opacity-50"
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Accept Request</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDeclineAppt(appt);
-                          setDeclineReason('');
-                          setDeclineModalOpen(true);
-                        }}
-                        className="flex-1 py-2 px-3 bg-rose-600/10 hover:bg-rose-600/20 border border-rose-500/30 text-rose-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95"
-                      >
-                        <XCircle className="w-4 h-4" />
-                        <span>Cancel / Decline</span>
-                      </button>
+                      <div className="p-3 rounded-xl bg-[#0c0c0a] border border-white/[0.06] text-xs text-[#888882] space-y-1">
+                        <p><strong className="text-white">Chief Complaint: </strong>{appt.reason || 'General Consultation'}</p>
+                        {appt.notes && <p className="italic text-[#666660]"><strong>Patient Note: </strong>{appt.notes}</p>}
+                      </div>
+
+                      <div className="pt-2 border-t border-white/[0.06] flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleAcceptAppointment(appt)}
+                          disabled={statusLoading}
+                          className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-700/20 active:scale-95 disabled:opacity-50"
+                          title={appealsCount > 1 ? `Confirm this patient and auto-close other ${appealsCount - 1} appeal(s)` : 'Accept request'}
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Accept Request</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeclineAppt(appt);
+                            setDeclineReason('');
+                            setDeclineModalOpen(true);
+                          }}
+                          className="flex-1 py-2 px-3 bg-rose-600/10 hover:bg-rose-600/20 border border-rose-500/30 text-rose-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                        >
+                          <XCircle className="w-4 h-4" />
+                          <span>Cancel / Decline</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ) : (

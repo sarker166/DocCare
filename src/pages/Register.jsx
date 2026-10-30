@@ -22,6 +22,7 @@ export default function Register() {
   const [role, setRole] = useState(roleFromUrl === 'doctor' ? 'doctor' : 'patient');
   const [step, setStep] = useState('form');
   const [emailError, setEmailError] = useState('');
+  const [devCode, setDevCode] = useState('');
 
   useEffect(() => {
     if (roleFromUrl === 'doctor' || roleFromUrl === 'patient') {
@@ -127,6 +128,7 @@ export default function Register() {
       });
 
       if (res?.requires2FA) {
+        if (res?.devCode) setDevCode(res.devCode);
         setStep('2fa');
         toast('Two-step verification code sent to your email!', { icon: '🔐' });
       } else {
@@ -173,6 +175,7 @@ export default function Register() {
       {step === '2fa' ? (
         <TwoStepVerification
           email={formData.email.trim()}
+          devCode={devCode}
           onSuccess={handle2FASuccess}
           onBack={() => setStep('form')}
           actionText="Verify & Activate Account"
