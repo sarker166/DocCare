@@ -41,29 +41,49 @@ export default function SlotPicker({ doctorId, onSelectSlot, selectedSlot, selec
   };
 
   const generateFallbackSlots = () => {
+    let localAppts = [];
+    try {
+      localAppts = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+    } catch (e) {}
+
     const rawSlots = [
-      { timeSlot: '09:00-09:30', isBooked: false, isAvailable: true, shift: 'morning' },
-      { timeSlot: '09:30-10:00', isBooked: false, isAvailable: true, shift: 'morning' },
-      { timeSlot: '10:00-10:30', isBooked: false, isAvailable: true, shift: 'morning' },
-      { timeSlot: '10:30-11:00', isBooked: false, isAvailable: true, shift: 'morning' },
-      { timeSlot: '11:00-11:30', isBooked: false, isAvailable: true, shift: 'morning' },
-      { timeSlot: '11:30-12:00', isBooked: false, isAvailable: true, shift: 'morning' },
-      { timeSlot: '12:00-12:30', isBooked: false, isAvailable: true, shift: 'morning' },
-      { timeSlot: '12:30-13:00', isBooked: false, isAvailable: true, shift: 'morning' },
-      { timeSlot: '13:00-13:30', isBooked: false, isAvailable: true, shift: 'morning' },
-      { timeSlot: '14:30-15:00', isBooked: false, isAvailable: true, shift: 'afternoon' },
-      { timeSlot: '15:00-15:30', isBooked: false, isAvailable: true, shift: 'afternoon' },
-      { timeSlot: '15:30-16:00', isBooked: false, isAvailable: true, shift: 'afternoon' },
-      { timeSlot: '16:00-16:30', isBooked: false, isAvailable: true, shift: 'afternoon' },
-      { timeSlot: '16:30-17:00', isBooked: false, isAvailable: true, shift: 'afternoon' },
-      { timeSlot: '17:00-17:30', isBooked: false, isAvailable: true, shift: 'afternoon' },
-      { timeSlot: '17:30-18:00', isBooked: false, isAvailable: true, shift: 'afternoon' },
-      { timeSlot: '18:00-18:30', isBooked: false, isAvailable: true, shift: 'afternoon' },
-      { timeSlot: '18:30-19:00', isBooked: false, isAvailable: true, shift: 'afternoon' },
-      { timeSlot: '19:00-19:30', isBooked: false, isAvailable: true, shift: 'afternoon' },
-      { timeSlot: '19:30-20:00', isBooked: false, isAvailable: true, shift: 'afternoon' },
-      { timeSlot: '20:00-20:30', isBooked: false, isAvailable: true, shift: 'afternoon' },
-    ];
+      { timeSlot: '09:00-09:30', shift: 'morning' },
+      { timeSlot: '09:30-10:00', shift: 'morning' },
+      { timeSlot: '10:00-10:30', shift: 'morning' },
+      { timeSlot: '10:30-11:00', shift: 'morning' },
+      { timeSlot: '11:00-11:30', shift: 'morning' },
+      { timeSlot: '11:30-12:00', shift: 'morning' },
+      { timeSlot: '12:00-12:30', shift: 'morning' },
+      { timeSlot: '12:30-13:00', shift: 'morning' },
+      { timeSlot: '13:00-13:30', shift: 'morning' },
+      { timeSlot: '14:30-15:00', shift: 'afternoon' },
+      { timeSlot: '15:00-15:30', shift: 'afternoon' },
+      { timeSlot: '15:30-16:00', shift: 'afternoon' },
+      { timeSlot: '16:00-16:30', shift: 'afternoon' },
+      { timeSlot: '16:30-17:00', shift: 'afternoon' },
+      { timeSlot: '17:00-17:30', shift: 'afternoon' },
+      { timeSlot: '17:30-18:00', shift: 'afternoon' },
+      { timeSlot: '18:00-18:30', shift: 'afternoon' },
+      { timeSlot: '18:30-19:00', shift: 'afternoon' },
+      { timeSlot: '19:00-19:30', shift: 'afternoon' },
+      { timeSlot: '19:30-20:00', shift: 'afternoon' },
+      { timeSlot: '20:00-20:30', shift: 'afternoon' },
+    ].map((slot) => {
+      const matching = localAppts.filter((a) => {
+        const dId = typeof a.doctorId === 'object' ? a.doctorId?._id || a.doctorId?.id : a.doctorId;
+        const matchesDoc = !doctorId || !dId || String(dId) === String(doctorId);
+        return matchesDoc && a.date === currentDate && a.timeSlot === slot.timeSlot;
+      });
+      const isConfirmed = matching.some((a) => a.status === 'confirmed' || a.status === 'completed');
+      const pendingCount = matching.filter((a) => a.status === 'pending').length;
+      return {
+        ...slot,
+        isBooked: isConfirmed,
+        isAvailable: !isConfirmed,
+        pendingAppeals: pendingCount,
+      };
+    });
+
     return {
       date: currentDate,
       isAvailable: true,

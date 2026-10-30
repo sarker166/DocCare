@@ -93,6 +93,17 @@ export default function DoctorProfile() {
             return;
           }
 
+          const currentUserId = user?._id || user?.id || user?.email;
+          const hasPendingAppeal = existingAppts.some((a) => {
+            const pId = a.patientId?._id || a.patientId?.id || a.patientId?.email;
+            return pId === currentUserId && a.date === selectedDate && a.timeSlot === selectedSlot && a.status === 'pending';
+          });
+          if (hasPendingAppeal) {
+            toast.error('You already have a pending appeal submitted for this slot.');
+            setSelectedSlot(null);
+            return;
+          }
+
           const fallbackBooking = {
             _id: 'appt_' + Date.now(),
             doctorId: doctor || { name: 'Specialist Physician', clinicAddress: 'Main Chamber' },
