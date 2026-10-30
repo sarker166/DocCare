@@ -5,7 +5,7 @@ import SlotPicker from '../components/SlotPicker';
 import Modal from '../components/Modal';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { Stethoscope, Award, MapPin, Calendar, ShieldCheck, CheckCircle2, FileText, ArrowLeft, ArrowRight, Phone } from 'lucide-react';
+import { Stethoscope, Award, MapPin, Calendar, ShieldCheck, CheckCircle2, FileText, ArrowLeft, ArrowRight, Phone, AlertCircle } from 'lucide-react';
 import { formatTime12h } from '../utils/timeFormat';
 import { CLINIC_DOCTORS } from '../services/doctorData';
 
@@ -23,6 +23,25 @@ export default function DoctorProfile() {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [bookedDetails, setBookedDetails] = useState(null);
+
+  const sameDayApptsCount = React.useMemo(() => {
+    if (!selectedDate) return 0;
+    const storedUser = user || JSON.parse(localStorage.getItem('doc_user') || 'null');
+    if (!storedUser) return 0;
+    try {
+      const local = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+      const currentEmail = (storedUser.email || '').trim().toLowerCase();
+      const currentId = storedUser._id || storedUser.id;
+      return local.filter((a) => {
+        const pEmail = (a.patientId?.email || '').trim().toLowerCase();
+        const pId = a.patientId?._id || a.patientId?.id;
+        const isSame = (currentEmail && pEmail && currentEmail === pEmail) || (currentId && pId && String(currentId) === String(pId));
+        return isSame && a.date === selectedDate && a.status !== 'cancelled';
+      }).length;
+    } catch {
+      return 0;
+    }
+  }, [selectedDate, user]);
 
   useEffect(() => {
     api.get(`/doctors/${id}`)
@@ -58,6 +77,11 @@ export default function DoctorProfile() {
     }
     if (!selectedSlot) { toast.error('Please select an available time slot'); return; }
 
+    if (sameDayApptsCount >= 2) {
+      toast.error('⚠️ Daily limit reached: You cannot book more than 2 appointments on the same day with the same Gmail/account.');
+      return;
+    }
+
     const now = new Date();
     const todayStr = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
     if (selectedDate === todayStr) {
@@ -77,52 +101,68 @@ export default function DoctorProfile() {
       setSuccessModalOpen(true);
       setSelectedSlot(null);
     } catch (err) {
-      if (err.response?.status === 409) {
-        toast.error(err.response?.data?.message || '⚠️ Slot Conflict: This slot has already been confirmed for another patient. Please pick another.');
+      if (err.response?.status === 400 || err.response?.status === 409) {
+        toast.error(err.response?.data?.message || '⚠️ Slot conflict or daily limit reached. Please choose another slot/date.');
         setSelectedSlot(null);
-      } else {
-        const isNetworkErr = !err.response || err.code === 'ERR_NETWORK' || err.response?.status === 405 || err.response?.status === 404;
-        if (isNetworkErr) {
-          const existingAppts = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
-          const isConfirmedLocally = existingAppts.some(
-            (a) => a.date === selectedDate && a.timeSlot === selectedSlot && (a.status === 'confirmed' || a.status === 'completed')
-          );
-          if (isConfirmedLocally) {
-            toast.error('⚠️ This time slot has already been confirmed for another patient. No more appeals can be made.');
-            setSelectedSlot(null);
-            return;
-          }
+        return;
+      }
 
-          const currentUserId = user?._id || user?.id || user?.email;
-          const hasPendingAppeal = existingAppts.some((a) => {
-            const pId = a.patientId?._id || a.patientId?.id || a.patientId?.email;
-            return pId === currentUserId && a.date === selectedDate && a.timeSlot === selectedSlot && a.status === 'pending';
-          });
-          if (hasPendingAppeal) {
-            toast.error('You already have a pending appeal submitted for this slot.');
-            setSelectedSlot(null);
-            return;
-          }
-
-          const fallbackBooking = {
-            _id: 'appt_' + Date.now(),
-            doctorId: doctor || { name: 'Specialist Physician', clinicAddress: 'Main Chamber' },
-            patientId: user || { name: 'Patient' },
-            date: selectedDate,
-            timeSlot: selectedSlot,
-            tokenNumber: Math.floor(Math.random() * 20) + 1,
-            status: 'pending',
-            reason: reason || 'General Consultation',
-            createdAt: new Date().toISOString()
-          };
-          localStorage.setItem('doc_local_appts', JSON.stringify([fallbackBooking, ...existingAppts]));
-          setBookedDetails(fallbackBooking);
-          setSuccessModalOpen(true);
+      const isNetworkErr = !err.response || err.code === 'ERR_NETWORK' || err.response?.status === 405 || err.response?.status === 404;
+      if (isNetworkErr) {
+        const existingAppts = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+        const isConfirmedLocally = existingAppts.some(
+          (a) => a.date === selectedDate && a.timeSlot === selectedSlot && (a.status === 'confirmed' || a.status === 'completed')
+        );
+        if (isConfirmedLocally) {
+          toast.error('⚠️ This time slot has already been confirmed for another patient. No more appeals can be made.');
           setSelectedSlot(null);
-          toast.success('Appointment appeal submitted! Pending doctor review ⏳');
-        } else {
-          toast.error(err.response?.data?.message || 'Booking failed');
+          return;
         }
+
+        const currentUserId = user?._id || user?.id || user?.email;
+        const currentEmail = (user?.email || '').trim().toLowerCase();
+
+        // Enforce max 2 appointments per day in local/offline mode
+        const sameDayCount = existingAppts.filter((a) => {
+          const pEmail = (a.patientId?.email || '').trim().toLowerCase();
+          const pId = a.patientId?._id || a.patientId?.id;
+          const isSame = (currentEmail && pEmail && currentEmail === pEmail) || (currentUserId && pId && String(currentUserId) === String(pId));
+          return isSame && a.date === selectedDate && a.status !== 'cancelled';
+        }).length;
+
+        if (sameDayCount >= 2) {
+          toast.error('⚠️ Daily limit reached: You cannot book more than 2 appointments on the same day with the same Gmail/account.');
+          return;
+        }
+
+        const hasPendingAppeal = existingAppts.some((a) => {
+          const pId = a.patientId?._id || a.patientId?.id || a.patientId?.email;
+          return pId === currentUserId && a.date === selectedDate && a.timeSlot === selectedSlot && a.status === 'pending';
+        });
+        if (hasPendingAppeal) {
+          toast.error('You already have a pending appeal submitted for this slot.');
+          setSelectedSlot(null);
+          return;
+        }
+
+        const fallbackBooking = {
+          _id: 'appt_' + Date.now(),
+          doctorId: doctor || { name: 'Specialist Physician', clinicAddress: 'Main Chamber' },
+          patientId: user || { name: 'Patient' },
+          date: selectedDate,
+          timeSlot: selectedSlot,
+          tokenNumber: Math.floor(Math.random() * 20) + 1,
+          status: 'pending',
+          reason: reason || 'General Consultation',
+          createdAt: new Date().toISOString()
+        };
+        localStorage.setItem('doc_local_appts', JSON.stringify([fallbackBooking, ...existingAppts]));
+        setBookedDetails(fallbackBooking);
+        setSuccessModalOpen(true);
+        setSelectedSlot(null);
+        toast.success('Appointment appeal submitted! Pending doctor review ⏳');
+      } else {
+        toast.error(err.response?.data?.message || 'Booking failed');
       }
     } finally {
       setBookingLoading(false);
@@ -280,6 +320,15 @@ export default function DoctorProfile() {
               </div>
             </div>
 
+            {sameDayApptsCount >= 2 && (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+                <span>
+                  <strong>Daily limit reached:</strong> You already have {sameDayApptsCount} appointments scheduled on {selectedDate}. You cannot book more than 2 appointments on the same day with this Gmail/account.
+                </span>
+              </div>
+            )}
+
             <form onSubmit={handleBooking} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-[#888882] mb-1">Reason for Visit / Symptoms</label>
@@ -292,7 +341,7 @@ export default function DoctorProfile() {
                   value={notes} onChange={(e) => setNotes(e.target.value)} className={inputCls + ' resize-none'} />
               </div>
 
-              <button type="submit" disabled={!selectedSlot || bookingLoading}
+              <button type="submit" disabled={!selectedSlot || bookingLoading || sameDayApptsCount >= 2}
                 className="w-full py-3 px-4 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-bold shadow-md shadow-teal-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                 {bookingLoading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

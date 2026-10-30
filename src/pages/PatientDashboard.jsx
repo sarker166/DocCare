@@ -154,6 +154,25 @@ export default function PatientDashboard() {
   const handleRescheduleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedAppt || !newDate || !newSlot) { toast.error('Please select both a new date and slot'); return; }
+
+    // Enforce max 2 appointments limit on newDate for the same patient/email
+    if (newDate !== selectedAppt.date) {
+      const currentEmail = (user?.email || '').trim().toLowerCase();
+      const currentUserId = user?._id || user?.id;
+      const sameDayCount = appointments.filter((a) => {
+        if (a._id === selectedAppt._id) return false;
+        const pEmail = (a.patientId?.email || '').trim().toLowerCase();
+        const pId = a.patientId?._id || a.patientId?.id;
+        const isSameUser = (currentEmail && pEmail && currentEmail === pEmail) || (currentUserId && pId && String(currentUserId) === String(pId));
+        return isSameUser && a.date === newDate && a.status !== 'cancelled';
+      }).length;
+
+      if (sameDayCount >= 2) {
+        toast.error('⚠️ Daily limit reached: You cannot have more than 2 appointments on the same day with the same Gmail/account.');
+        return;
+      }
+    }
+
     setActionLoading(true);
     try {
       await api.patch(`/appointments/${selectedAppt._id}/reschedule`, { newDate, newTimeSlot: newSlot });
@@ -161,6 +180,11 @@ export default function PatientDashboard() {
       setRescheduleModalOpen(false);
       fetchData();
     } catch (err) {
+      if (err.response?.status === 400 || err.response?.status === 409) {
+        toast.error(err.response?.data?.message || 'Cannot reschedule to this date or slot');
+        return;
+      }
+
       const local = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
       const updated = local.map((a) =>
         a._id === selectedAppt._id
