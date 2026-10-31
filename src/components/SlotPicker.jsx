@@ -46,6 +46,13 @@ export default function SlotPicker({ doctorId, onSelectSlot, selectedSlot, selec
       localAppts = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
     } catch (e) {}
 
+    let storedUser = null;
+    try {
+      storedUser = JSON.parse(localStorage.getItem('doc_user') || 'null');
+    } catch (e) {}
+    const currentEmail = (storedUser?.email || '').trim().toLowerCase();
+    const currentUserId = storedUser?._id || storedUser?.id;
+
     const rawSlots = [
       { timeSlot: '09:00-09:30', shift: 'morning' },
       { timeSlot: '09:30-10:00', shift: 'morning' },
@@ -76,11 +83,24 @@ export default function SlotPicker({ doctorId, onSelectSlot, selectedSlot, selec
       });
       const isConfirmed = matching.some((a) => a.status === 'confirmed' || a.status === 'completed');
       const pendingCount = matching.filter((a) => a.status === 'pending').length;
+
+      // Check if patient already has an active appointment with another doctor at this exact slot
+      const otherDoctorConflict = localAppts.find((a) => {
+        const dId = typeof a.doctorId === 'object' ? a.doctorId?._id || a.doctorId?.id : a.doctorId;
+        const isDifferentDoctor = doctorId && dId && String(dId) !== String(doctorId);
+        const pEmail = (a.patientId?.email || '').trim().toLowerCase();
+        const pId = a.patientId?._id || a.patientId?.id;
+        const isSamePatient = (currentEmail && pEmail && currentEmail === pEmail) || (currentUserId && pId && String(currentUserId) === String(pId));
+        return isDifferentDoctor && isSamePatient && a.date === currentDate && a.timeSlot === slot.timeSlot && a.status !== 'cancelled';
+      });
+
       return {
         ...slot,
         isBooked: isConfirmed,
         isAvailable: !isConfirmed,
         pendingAppeals: pendingCount,
+        hasOtherDoctorConflict: Boolean(otherDoctorConflict),
+        otherDoctorName: otherDoctorConflict?.doctorId?.name ? `Dr. ${otherDoctorConflict.doctorId.name}` : 'another doctor',
       };
     });
 
@@ -130,16 +150,19 @@ export default function SlotPicker({ doctorId, onSelectSlot, selectedSlot, selec
   });
 
   const availableMorningCount = morningSlots.filter(
-    (s) => s.isAvailable && !s.isBooked && !isSlotPast(s.timeSlot)
+    (s) => s.isAvailable && !s.isBooked && !isSlotPast(s.timeSlot) && !s.hasOtherDoctorConflict
   ).length;
 
   const availableAfternoonCount = afternoonSlots.filter(
-    (s) => s.isAvailable && !s.isBooked && !isSlotPast(s.timeSlot)
+    (s) => s.isAvailable && !s.isBooked && !isSlotPast(s.timeSlot) && !s.hasOtherDoctorConflict
   ).length;
 
-  const slotCls = (isSelected, isPast, isBooked) => {
+  const slotCls = (isSelected, isPast, isBooked, hasConflict) => {
     if (isSelected) {
       return 'bg-teal-600 text-white border-teal-600 shadow-sm ring-2 ring-teal-600/20 py-2 px-3 rounded-xl text-xs font-semibold border transition-all flex items-center justify-center gap-1.5';
+    }
+    if (hasConflict) {
+      return 'bg-[#181326] text-purple-300 border-purple-500/30 cursor-not-allowed py-2 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 opacity-80';
     }
     if (isPast) {
       return 'bg-[#141412] text-[#4a4a46] border-white/[0.03] cursor-not-allowed opacity-50 py-2 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5';
@@ -220,6 +243,10 @@ export default function SlotPicker({ doctorId, onSelectSlot, selectedSlot, selec
             <span className="text-[#888882]">Selected</span>
           </div>
           <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-md bg-[#181326] border border-purple-500/40" />
+            <span className="text-purple-300/90">Your Other Doctor Slot</span>
+          </div>
+          <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-md bg-[#111110] border border-white/[0.04] opacity-50" />
             <span className="text-[#555552] line-through">Confirmed / Locked</span>
           </div>
@@ -259,7 +286,7 @@ export default function SlotPicker({ doctorId, onSelectSlot, selectedSlot, selec
                   const label12h = formatTime12h(slot.timeSlot);
                   const isSel = selectedSlot === slot.timeSlot || selectedSlot === label12h;
                   const isPast = isSlotPast(slot.timeSlot);
-                  const isDis = isPast || slot.isBooked || !slot.isAvailable;
+                  const isDis = isPast || slot.isBooked || slot.hasOtherDoctorConflict || !slot.isAvailable;
 
                   return (
                     <button
@@ -267,10 +294,12 @@ export default function SlotPicker({ doctorId, onSelectSlot, selectedSlot, selec
                       type="button"
                       disabled={isDis}
                       onClick={() => onSelectSlot(label12h)}
-                      className={slotCls(isSel, isPast, slot.isBooked)}
+                      className={slotCls(isSel, isPast, slot.isBooked, slot.hasOtherDoctorConflict)}
                       title={
                         isPast
                           ? 'This time slot has already passed today'
+                          : slot.hasOtherDoctorConflict
+                          ? `You already have an appointment with ${slot.otherDoctorName || 'another doctor'} at this exact time.`
                           : slot.isBooked
                           ? 'Doctor has confirmed an appointment for this slot. No further appeals permitted.'
                           : slot.pendingAppeals > 0
@@ -283,6 +312,10 @@ export default function SlotPicker({ doctorId, onSelectSlot, selectedSlot, selec
                       {slot.isBooked ? (
                         <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold ml-1">
                           Full
+                        </span>
+                      ) : slot.hasOtherDoctorConflict ? (
+                        <span className="text-[9px] px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-medium ml-1">
+                          Conflict
                         </span>
                       ) : isPast ? (
                         <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-red-500/10 text-red-400 border border-red-500/20 font-bold ml-1">
@@ -322,7 +355,7 @@ export default function SlotPicker({ doctorId, onSelectSlot, selectedSlot, selec
                   const label12h = formatTime12h(slot.timeSlot);
                   const isSel = selectedSlot === slot.timeSlot || selectedSlot === label12h;
                   const isPast = isSlotPast(slot.timeSlot);
-                  const isDis = isPast || slot.isBooked || !slot.isAvailable;
+                  const isDis = isPast || slot.isBooked || slot.hasOtherDoctorConflict || !slot.isAvailable;
 
                   return (
                     <button
@@ -330,10 +363,12 @@ export default function SlotPicker({ doctorId, onSelectSlot, selectedSlot, selec
                       type="button"
                       disabled={isDis}
                       onClick={() => onSelectSlot(label12h)}
-                      className={slotCls(isSel, isPast, slot.isBooked)}
+                      className={slotCls(isSel, isPast, slot.isBooked, slot.hasOtherDoctorConflict)}
                       title={
                         isPast
                           ? 'This time slot has already passed today'
+                          : slot.hasOtherDoctorConflict
+                          ? `You already have an appointment with ${slot.otherDoctorName || 'another doctor'} at this exact time.`
                           : slot.isBooked
                           ? 'Doctor has confirmed an appointment for this slot. No further appeals permitted.'
                           : slot.pendingAppeals > 0
@@ -346,6 +381,10 @@ export default function SlotPicker({ doctorId, onSelectSlot, selectedSlot, selec
                       {slot.isBooked ? (
                         <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold ml-1">
                           Full
+                        </span>
+                      ) : slot.hasOtherDoctorConflict ? (
+                        <span className="text-[9px] px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-medium ml-1">
+                          Conflict
                         </span>
                       ) : isPast ? (
                         <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-red-500/10 text-red-400 border border-red-500/20 font-bold ml-1">

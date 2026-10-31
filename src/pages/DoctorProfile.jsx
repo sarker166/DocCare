@@ -43,6 +43,25 @@ export default function DoctorProfile() {
     }
   }, [selectedDate, user]);
 
+  const slotConflictAppt = React.useMemo(() => {
+    if (!selectedDate || !selectedSlot) return null;
+    const storedUser = user || JSON.parse(localStorage.getItem('doc_user') || 'null');
+    if (!storedUser) return null;
+    try {
+      const local = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+      const currentEmail = (storedUser.email || '').trim().toLowerCase();
+      const currentId = storedUser._id || storedUser.id;
+      return local.find((a) => {
+        const pEmail = (a.patientId?.email || '').trim().toLowerCase();
+        const pId = a.patientId?._id || a.patientId?.id;
+        const isSamePatient = (currentEmail && pEmail && currentEmail === pEmail) || (currentId && pId && String(currentId) === String(pId));
+        return isSamePatient && a.date === selectedDate && a.timeSlot === selectedSlot && a.status !== 'cancelled';
+      }) || null;
+    } catch {
+      return null;
+    }
+  }, [selectedDate, selectedSlot, user]);
+
   useEffect(() => {
     api.get(`/doctors/${id}`)
       .then((r) => {
@@ -79,6 +98,18 @@ export default function DoctorProfile() {
 
     if (sameDayApptsCount >= 2) {
       toast.error('⚠️ Daily limit reached: You cannot book more than 2 appointments on the same day with the same Gmail/account.');
+      return;
+    }
+
+    if (slotConflictAppt) {
+      const apptDocId = typeof slotConflictAppt.doctorId === 'object' ? (slotConflictAppt.doctorId?._id || slotConflictAppt.doctorId?.id) : slotConflictAppt.doctorId;
+      const isSameDoc = apptDocId && (String(apptDocId) === String(id) || String(apptDocId) === String(doctor?._id));
+      if (isSameDoc) {
+        toast.error('You already have an appointment appeal submitted for this time slot.');
+      } else {
+        const otherDocName = slotConflictAppt.doctorId?.name ? `Dr. ${slotConflictAppt.doctorId.name}` : 'another physician';
+        toast.error(`⚠️ Time Conflict: You already have an appointment/appeal at ${selectedSlot} on ${selectedDate} with ${otherDocName}. You cannot book overlapping appointments for the same time across different doctors.`);
+      }
       return;
     }
 
@@ -132,6 +163,19 @@ export default function DoctorProfile() {
 
         if (sameDayCount >= 2) {
           toast.error('⚠️ Daily limit reached: You cannot book more than 2 appointments on the same day with the same Gmail/account.');
+          return;
+        }
+
+        if (slotConflictAppt) {
+          const apptDocId = typeof slotConflictAppt.doctorId === 'object' ? (slotConflictAppt.doctorId?._id || slotConflictAppt.doctorId?.id) : slotConflictAppt.doctorId;
+          const isSameDoc = apptDocId && (String(apptDocId) === String(id) || String(apptDocId) === String(doctor?._id));
+          if (isSameDoc) {
+            toast.error('You already have a pending appeal submitted for this slot.');
+          } else {
+            const otherDocName = slotConflictAppt.doctorId?.name ? `Dr. ${slotConflictAppt.doctorId.name}` : 'another physician';
+            toast.error(`⚠️ Time Conflict: You already have an appointment at ${selectedSlot} on ${selectedDate} with ${otherDocName}. You cannot book overlapping appointments for the same time across different doctors.`);
+          }
+          setSelectedSlot(null);
           return;
         }
 
@@ -329,6 +373,15 @@ export default function DoctorProfile() {
               </div>
             )}
 
+            {slotConflictAppt && (
+              <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs flex items-center gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-purple-400" />
+                <span>
+                  <strong>Time Conflict:</strong> You already have an appointment/appeal at {selectedSlot} on {selectedDate} with {slotConflictAppt.doctorId?.name ? `Dr. ${slotConflictAppt.doctorId.name}` : 'another doctor'}. You can only book a specific time with a single doctor, not multiple.
+                </span>
+              </div>
+            )}
+
             <form onSubmit={handleBooking} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-[#888882] mb-1">Reason for Visit / Symptoms</label>
@@ -341,7 +394,7 @@ export default function DoctorProfile() {
                   value={notes} onChange={(e) => setNotes(e.target.value)} className={inputCls + ' resize-none'} />
               </div>
 
-              <button type="submit" disabled={!selectedSlot || bookingLoading || sameDayApptsCount >= 2}
+              <button type="submit" disabled={!selectedSlot || bookingLoading || sameDayApptsCount >= 2 || Boolean(slotConflictAppt)}
                 className="w-full py-3 px-4 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-bold shadow-md shadow-teal-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                 {bookingLoading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

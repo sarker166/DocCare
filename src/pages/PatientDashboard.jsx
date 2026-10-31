@@ -155,10 +155,26 @@ export default function PatientDashboard() {
     e.preventDefault();
     if (!selectedAppt || !newDate || !newSlot) { toast.error('Please select both a new date and slot'); return; }
 
+    const currentEmail = (user?.email || '').trim().toLowerCase();
+    const currentUserId = user?._id || user?.id;
+
+    // Check if user already has an active appointment at newDate and newSlot (other than this appointment)
+    const timeConflictAppt = appointments.find((a) => {
+      if (a._id === selectedAppt._id) return false;
+      const pEmail = (a.patientId?.email || '').trim().toLowerCase();
+      const pId = a.patientId?._id || a.patientId?.id;
+      const isSameUser = (currentEmail && pEmail && currentEmail === pEmail) || (currentUserId && pId && String(currentUserId) === String(pId));
+      return isSameUser && a.date === newDate && a.timeSlot === newSlot && a.status !== 'cancelled';
+    });
+
+    if (timeConflictAppt) {
+      const otherDoc = timeConflictAppt.doctorId?.name ? `Dr. ${timeConflictAppt.doctorId.name}` : 'another doctor';
+      toast.error(`⚠️ Time conflict: You already have an active appointment scheduled at ${newSlot} on ${newDate} with ${otherDoc}. You can only book a specific time with a single doctor.`);
+      return;
+    }
+
     // Enforce max 2 appointments limit on newDate for the same patient/email
     if (newDate !== selectedAppt.date) {
-      const currentEmail = (user?.email || '').trim().toLowerCase();
-      const currentUserId = user?._id || user?.id;
       const sameDayCount = appointments.filter((a) => {
         if (a._id === selectedAppt._id) return false;
         const pEmail = (a.patientId?.email || '').trim().toLowerCase();
@@ -186,6 +202,19 @@ export default function PatientDashboard() {
       }
 
       const local = JSON.parse(localStorage.getItem('doc_local_appts') || '[]');
+      const localConflict = local.find((a) => {
+        if (a._id === selectedAppt._id) return false;
+        const pEmail = (a.patientId?.email || '').trim().toLowerCase();
+        const pId = a.patientId?._id || a.patientId?.id;
+        const isSameUser = (currentEmail && pEmail && currentEmail === pEmail) || (currentUserId && pId && String(currentUserId) === String(pId));
+        return isSameUser && a.date === newDate && a.timeSlot === newSlot && a.status !== 'cancelled';
+      });
+      if (localConflict) {
+        const otherDoc = localConflict.doctorId?.name ? `Dr. ${localConflict.doctorId.name}` : 'another doctor';
+        toast.error(`⚠️ Time conflict: You already have an active appointment scheduled at ${newSlot} on ${newDate} with ${otherDoc}.`);
+        return;
+      }
+
       const updated = local.map((a) =>
         a._id === selectedAppt._id
           ? { ...a, date: newDate, timeSlot: newSlot }
